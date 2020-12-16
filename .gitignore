@@ -250,3 +250,4 @@ dmypy.json
 !.gitignore
 
 .idea
+.DS_Store
