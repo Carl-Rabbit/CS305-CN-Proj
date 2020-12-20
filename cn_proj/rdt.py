@@ -48,13 +48,22 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         print('before self.recvfrom')
         data, addr = self.recvfrom(2048)
-        print('data, addr', data, addr)
-        conn.sendto(b'connection received', addr)
-        print('after self.recvfrom')
+        print('data, addr', data.hex(), addr)
+        if data == utils.get_handshake_1_packet():
+            print('before sending handshake 2')
+            rpl = utils.get_handshake_2_packet()
+            conn.sendto(rpl, addr)
+            print('after sending handshake 2')
+        print('before receiving handshake 3')
+        data, addr = self.recvfrom(2048)
+        print('after receiving handshake 3')
+        if data == utils.get_handshake_3_packet():
+            print('Connection Established')
+            return conn, addr
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
-        return conn, addr
+        return None, None
 
     def connect(self, address: (str, int)):
         """
@@ -64,11 +73,20 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        data = b'connect'
+        print('before sending handshake 1')
+        data = utils.get_handshake_1_packet()
         self.sendto(data, address)
+        print('after sending handshake 1')
+        print('before receiving handshake 2')
         rpl, frm = self.recvfrom(2048)
-        print('rpl', rpl)
+        print('rpl', rpl.hex())
         print('frm', frm)
+        print('after receiving handshake 2')
+        print('before sending handshake 3')
+        if rpl == utils.get_handshake_2_packet():
+            data = utils.get_handshake_3_packet()
+            print('after sending handshake 3')
+            self.sendto(data, address)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
