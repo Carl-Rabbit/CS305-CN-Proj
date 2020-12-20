@@ -33,7 +33,21 @@ def generate_chksm(packet: bytes) -> bytes:
         odd_sum %= 256
     even_chksm = ((256 - even_sum) % 256).to_bytes(length=1, byteorder='big', signed=False)
     odd_chksm = ((256 - odd_sum) % 256).to_bytes(length=1, byteorder='big', signed=False)
-    return even_chksm + odd_chksm
+    # The order is reverted here because checksum bytes are in 13 and 14. 13 is odd.
+    chksm = odd_chksm + even_chksm
+    return chksm
+
+
+def checksum(msg: bytes) -> bool:
+    even_chksm = 0x0
+    odd_chksm = 0x0
+    for b in msg[0::2]:
+        even_chksm += b
+        even_chksm %= 256
+    for b in msg[1::2]:
+        odd_chksm += b
+        odd_chksm %= 256
+    return even_chksm == 0 and odd_chksm == 0
 
 
 def get_handshake_1_packet() -> bytes:
@@ -42,7 +56,7 @@ def get_handshake_1_packet() -> bytes:
     :return: The packet of handshake 1.
     """
     packet_without_chksm = SYN + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET
-    return SYN + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET + generate_chksm(packet_without_chksm)
+    return packet_without_chksm + generate_chksm(packet_without_chksm)
 
 
 def get_handshake_2_packet() -> bytes:
@@ -66,6 +80,31 @@ def get_handshake_3_packet() -> bytes:
     return packet_without_chksm + generate_chksm(packet_without_chksm)
 
 
+def assemble(info: bytes, data: bytes) -> bytes:
+    """
+    Receive the bytes before chksm and bytes after chksm, generate chksm and concat them
+    together.
+    :param info: Bytes before chksm. Named by ArslanaWu.
+    :param data: Bytes after chksm.
+    :return: msg in bytes.
+    """
+    chksm: bytes = generate_chksm(info + data)
+    return info + chksm + data
+
+
+def dissemble(msg: bytes) -> (bytes, bytes):
+    """
+    Dissemble the msg into info and data. Checksum is checked.
+    :param msg: The message.
+    :return: info and data in bytes.
+    """
+    if not checksum(msg):
+        raise Exception('Wrong chksm')
+    info = msg[0:13]
+    data = msg[15:]
+    return info, data
+
+
 if __name__ == '__main__':
     print('Testing constants.')
     print(SYN.hex())
@@ -76,4 +115,10 @@ if __name__ == '__main__':
     print(get_handshake_1_packet().hex())
     print(get_handshake_2_packet().hex())
     print(get_handshake_3_packet().hex())
+    try:
+        dissemble(get_handshake_1_packet())
+        dissemble(get_handshake_2_packet())
+        dissemble(get_handshake_3_packet())
+    except Exception as e:
+        print(e)
     print('Testing constants ended.')
