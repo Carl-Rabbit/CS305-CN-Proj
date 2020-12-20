@@ -39,6 +39,11 @@ def generate_chksm(packet: bytes) -> bytes:
 
 
 def checksum(msg: bytes) -> bool:
+    """
+    Check the checksum.
+    :param msg: The packet to check.
+    :return: Correctness of checksum.
+    """
     even_chksm = 0x0
     odd_chksm = 0x0
     for b in msg[0::2]:
