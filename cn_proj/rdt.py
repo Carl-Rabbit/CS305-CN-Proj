@@ -1,6 +1,7 @@
 from USocket import UnreliableSocket
 import threading
 import time
+import utils
 
 
 class RDTSocket(UnreliableSocket):
