@@ -45,7 +45,11 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-
+        print('before self.recvfrom')
+        data, addr = self.recvfrom(2048)
+        print('data, addr', data, addr)
+        conn.sendto(b'connection received', addr)
+        print('after self.recvfrom')
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -59,7 +63,11 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        raise NotImplementedError()
+        data = b'connect'
+        self.sendto(data, address)
+        rpl, frm = self.recvfrom(2048)
+        print('rpl', rpl)
+        print('frm', frm)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -102,7 +110,7 @@ class RDTSocket(UnreliableSocket):
     def close(self):
         """
         Finish the connection and release resources. For simplicity, assume that
-        after a socket is closed, neither futher sends nor receives are allowed.
+        after a socket is closed, neither further sends nor receives are allowed.
         """
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #

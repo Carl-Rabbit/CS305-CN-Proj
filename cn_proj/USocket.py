@@ -37,8 +37,10 @@ class UnreliableSocket:
         sockets[id(self)].bind(address)
 
     def recvfrom(self, bufsize) -> bytes:
+        print('before socket recvfrom')
         data, frm = sockets[id(self)].recvfrom(bufsize)
         addr = bytes_to_addr(data[:8])
+        print('after socket recvfrom')
         if frm == network:
             return data[8:], addr
         else:
