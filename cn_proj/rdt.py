@@ -56,6 +56,8 @@ class RDTSocket(UnreliableSocket):
             rpl = utils.get_handshake_2_packet()
             conn.sendto(rpl, addr)
             print('after sending handshake 2')
+            conn._recv_from = self.recvfrom
+            conn.target_addr = addr
             return conn, addr
         # print('before receiving handshake 3')
         # data, addr = self.recvfrom(2048)
@@ -90,7 +92,7 @@ class RDTSocket(UnreliableSocket):
             print('after receiving handshake 2')
             print('before sending handshake 3')
             if rpl == utils.get_handshake_2_packet():
-                self.target_addr = frm
+                self.target_addr = address
                 break
         return
         # if rpl == utils.get_handshake_2_packet():
@@ -116,7 +118,7 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-
+        data, addr = self._recv_from(2048)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -130,15 +132,9 @@ class RDTSocket(UnreliableSocket):
         self.set_send_to(USocket.get_sendto(id(self)))
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
+        print('target', self.target_addr)
         self.sendto(bytes, self.target_addr)
-        #############################################################################
-        # TODO: YOUR CODE HERE                                                      #
-        #############################################################################
         return
-        # raise NotImplementedError()
-        #############################################################################
-        #                             END OF YOUR CODE                              #
-        #############################################################################
 
     def close(self):
         """

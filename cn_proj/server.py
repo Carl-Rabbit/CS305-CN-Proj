@@ -13,8 +13,10 @@ if __name__ == '__main__':
     print('after accept')
     print(conn, addr)
     while True:
-        data = conn.recvfrom(2048)
+        data = conn.recv(2048)
         print(data)
+        conn.send(data)
+        break
     # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # s.bind((HOST, PORT))
     # s.listen(1)

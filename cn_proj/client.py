@@ -6,4 +6,5 @@ if __name__ == '__main__':
     client = RDTSocket()
     client.connect(addr)
     client.send(b'abc')
+    print(client.recvfrom(2048))
     print('client end')
