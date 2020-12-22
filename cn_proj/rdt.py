@@ -2,6 +2,7 @@ from USocket import UnreliableSocket
 import threading
 import time
 import utils
+import USocket
 
 
 class RDTSocket(UnreliableSocket):
@@ -25,6 +26,7 @@ class RDTSocket(UnreliableSocket):
         self._send_to = None
         self._recv_from = None
         self.debug = debug
+        self.target_addr = None
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -54,12 +56,13 @@ class RDTSocket(UnreliableSocket):
             rpl = utils.get_handshake_2_packet()
             conn.sendto(rpl, addr)
             print('after sending handshake 2')
-        print('before receiving handshake 3')
-        data, addr = self.recvfrom(2048)
-        print('after receiving handshake 3')
-        if data == utils.get_handshake_3_packet():
-            print('Connection Established')
             return conn, addr
+        # print('before receiving handshake 3')
+        # data, addr = self.recvfrom(2048)
+        # print('after receiving handshake 3')
+        # if data == utils.get_handshake_3_packet():
+        #     print('Connection Established')
+        #     return conn, addr
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -67,6 +70,8 @@ class RDTSocket(UnreliableSocket):
 
     def connect(self, address: (str, int)):
         """
+        According to the professor, I was completely wrong.
+        3-way handshake is not necessary.
         Connect to a remote socket at address.
         Corresponds to the process of establishing a connection on the client side.
         """
@@ -78,15 +83,20 @@ class RDTSocket(UnreliableSocket):
         self.sendto(data, address)
         print('after sending handshake 1')
         print('before receiving handshake 2')
-        rpl, frm = self.recvfrom(2048)
-        print('rpl', rpl.hex())
-        print('frm', frm)
-        print('after receiving handshake 2')
-        print('before sending handshake 3')
-        if rpl == utils.get_handshake_2_packet():
-            data = utils.get_handshake_3_packet()
-            print('after sending handshake 3')
-            self.sendto(data, address)
+        while True:
+            rpl, frm = self.recvfrom(2048)
+            print('rpl', rpl.hex())
+            print('frm', frm)
+            print('after receiving handshake 2')
+            print('before sending handshake 3')
+            if rpl == utils.get_handshake_2_packet():
+                self.target_addr = frm
+                break
+        return
+        # if rpl == utils.get_handshake_2_packet():
+        #     data = utils.get_handshake_3_packet()
+        #     print('after sending handshake 3')
+        #     self.sendto(data, address)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -117,11 +127,15 @@ class RDTSocket(UnreliableSocket):
         Send data to the socket. 
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
         """
+        self.set_send_to(USocket.get_sendto(id(self)))
         assert self._send_to, "Connection not established yet. Use sendto instead."
+        assert self.target_addr, 'You did not specify where to send.'
+        self.sendto(bytes, self.target_addr)
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        raise NotImplementedError()
+        return
+        # raise NotImplementedError()
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
