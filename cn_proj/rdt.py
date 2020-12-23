@@ -3,6 +3,7 @@ from USocket import UnreliableSocket
 # import time
 import utils
 import USocket
+import math
 
 
 class RDTSocket(UnreliableSocket):
@@ -29,6 +30,7 @@ class RDTSocket(UnreliableSocket):
         self.target_addr = None
         self.seq_num = 0
         self.seqack_num = 0
+        self.max_segment_size = 2048
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -133,11 +135,23 @@ class RDTSocket(UnreliableSocket):
         Send data to the socket. 
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
         """
-        self.set_send_to(USocket.get_sendto(id(self)))
-        data_length = len(data)
+        if not self._send_to:
+            self.set_send_to(USocket.get_sendto(id(self)))
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
-        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=data)
+        data_length = len(data)
+        if data_length <= self.max_segment_size:
+            self.send_segment(data)
+        else:
+            segment_num = math.ceil(data_length / self.max_segment_size)
+            segment_size = math.ceil(data_length / segment_num)
+            for segment in data[::segment_size]:
+                self.send_segment(segment)
+        return
+
+    def send_segment(self, segment: bytes) -> None:
+        data_length = len(segment)
+        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=segment)
         while True:
             self.sendto(msg, self.target_addr)
             ack_msg, frm = self.recvfrom(2048)
