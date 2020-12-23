@@ -12,11 +12,17 @@ DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEQ_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 
-# Fixme: Should you use the length of payload, or the length of the whole packet?
 # Length of the payload of handshakes is 0 in bytes.
-# However, the length of the whole packet is 15 in bytes.
-# Here, we use the length of the whole packet as the length, which is 15.
 LEN_HANDSHAKE_PACKET = (0).to_bytes(length=4, byteorder='big', signed=False)
+
+
+def bytes_to_bu_int(b: bytes) -> int:
+    """
+    Convert bytes to a big-endian unsigned int.
+    :param b: The bytes.
+    :return: The big-endian unsigned int.
+    """
+    return int.from_bytes(bytes=b, byteorder='big', signed=False)
 
 
 def generate_chksm(packet: bytes) -> bytes:
@@ -120,12 +126,12 @@ def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
     """
     if not checksum(msg):
         raise Exception('Wrong chksm')
-    data_length = int.from_bytes(bytes=msg[9:13], byteorder='big', signed=False)
+    data_length = bytes_to_bu_int(msg[9:13])
     if data_length != len(msg) - 15:
         raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}')
-    seq_num = msg[1:5]
-    seqack_num = msg[5:9]
     data = msg[15:]
+    seq_num = bytes_to_bu_int(msg[1:5])
+    seqack_num = bytes_to_bu_int(msg[5:9])
     return data, seq_num, seqack_num, data_length
 
 

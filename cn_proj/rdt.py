@@ -1,6 +1,6 @@
 from USocket import UnreliableSocket
-import threading
-import time
+# import threading
+# import time
 import utils
 import USocket
 
@@ -121,6 +121,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         msg, addr = self._recv_from(buff_size)
         data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
+        if new_seq_num != self.seqack_num:
+            raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
+        self.seqack_num += data_length
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
@@ -132,10 +135,12 @@ class RDTSocket(UnreliableSocket):
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
         """
         self.set_send_to(USocket.get_sendto(id(self)))
+        data_length = len(data)
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
         msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=data)
-        print('target', self.target_addr)
+        self.seq_num += data_length
+        # print('target', self.target_addr)
         self.sendto(msg, self.target_addr)
         return
 
