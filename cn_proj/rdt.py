@@ -138,6 +138,7 @@ class RDTSocket(UnreliableSocket):
         """
         if not self._send_to:
             self.set_send_to(USocket.get_sendto(id(self)))
+        print('send', data)
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
         data_length = len(data)
@@ -185,7 +186,6 @@ class RDTSocket(UnreliableSocket):
         print('before sendto int rpl_ack', ack_msg, self.target_addr)
         self.sendto(ack_msg, self.target_addr)
         print('after sendto int rpl_ack', ack_msg, self.target_addr)
-        return
 
     def close(self):
         """
