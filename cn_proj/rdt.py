@@ -50,27 +50,24 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        # print('before self.recvfrom')
         data, addr = self.recvfrom(2048)
-        # print('data, addr', data.hex(), addr)
-        if data == utils.get_handshake_1_packet():
-            print('before sending handshake 2')
-            rpl = utils.get_handshake_2_packet()
-            conn.sendto(rpl, addr)
-            print('after sending handshake 2')
-            conn._recv_from = self.recvfrom
-            conn.target_addr = addr
-            return conn, addr
-        # print('before receiving handshake 3')
-        # data, addr = self.recvfrom(2048)
-        # print('after receiving handshake 3')
-        # if data == utils.get_handshake_3_packet():
-        #     print('Connection Established')
-        #     return conn, addr
+        if data != utils.get_handshake_1_packet():
+            raise Exception(f'msg {data} != handshake1 {utils.get_handshake_1_packet()}')
+        print('before sending handshake 2')
+        rpl = utils.get_handshake_2_packet()
+        conn.sendto(rpl, addr)
+        print('after sending handshake 2')
+        print('before receiving handshake 3')
+        data, addr = self.recvfrom(2048)
+        if data != utils.get_handshake_3_packet():
+            raise Exception(f'msg {data} != handshake3 {utils.get_handshake_3_packet()}')
+        print('after receiving handshake 3')
+        conn._recv_from = self.recvfrom
+        conn.target_addr = addr
+        return conn, addr
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
-        return None, None
 
     def connect(self, address: (str, int)):
         """
@@ -89,18 +86,17 @@ class RDTSocket(UnreliableSocket):
         print('before receiving handshake 2')
         while True:
             rpl, frm = self.recvfrom(2048)
-            print('rpl', rpl.hex())
-            print('frm', frm)
+            if rpl != utils.get_handshake_2_packet():
+                raise Exception(f'rpl {rpl} != handshake2 {utils.get_handshake_2_packet()}')
             print('after receiving handshake 2')
             print('before sending handshake 3')
-            if rpl == utils.get_handshake_2_packet():
-                self.target_addr = address
-                break
+            data = utils.get_handshake_3_packet()
+            self.sendto(data, address)
+            self.target_addr = address
+            self._recv_from = self.recvfrom
+            print('after sending handshake 3')
+            break
         return
-        # if rpl == utils.get_handshake_2_packet():
-        #     data = utils.get_handshake_3_packet()
-        #     print('after sending handshake 3')
-        #     self.sendto(data, address)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################

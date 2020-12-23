@@ -16,7 +16,8 @@ if __name__ == '__main__':
         data = conn.recv(2048)
         if data is None:
             break
-        # conn.send(data)
+        conn.send(data)
+        print(conn.seq_num, conn.seqack_num)
     # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # s.bind((HOST, PORT))
     # s.listen(1)
