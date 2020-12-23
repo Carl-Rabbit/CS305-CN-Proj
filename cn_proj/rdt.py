@@ -96,7 +96,6 @@ class RDTSocket(UnreliableSocket):
             self._recv_from = self.recvfrom
             print('after sending handshake 3')
             break
-        # print(self.seq_num, self.seqack_num)
         return
         #############################################################################
         #                             END OF YOUR CODE                              #
@@ -116,14 +115,13 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        # print(self.seq_num, self.seqack_num)
+        print(self.seq_num, self.seqack_num)
         msg, addr = self._recv_from(buff_size)
         data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
         if new_seq_num != self.seqack_num:
             raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
         self.seqack_num += data_length
         ack_msg: bytes = utils.generate_ack_msg(self.seq_num, self.seqack_num)
-        # print(ack_msg)
         self.rpl_ack(ack_msg)
         #############################################################################
         #                             END OF YOUR CODE                              #
@@ -143,14 +141,14 @@ class RDTSocket(UnreliableSocket):
         while True:
             self.sendto(msg, self.target_addr)
             ack_msg, frm = self.recvfrom(2048)
-            print(ack_msg)
             if utils.checksum(ack_msg):
                 seqack_num = utils.get_seqack_num(ack_msg)
                 if seqack_num == self.seq_num + data_length:
-                    print('seqack_num == self.seq_num + data_length')
                     break
+                print(f'seqack_num {seqack_num} != self.seq_num {self.seqack_num} + data_length {data_length}')
+            else:
+                print(f'ack_msg {ack_msg} Wrong chksm')
         self.seq_num += data_length
-        # print('target', self.target_addr)
         return
 
     def rpl_ack(self, ack_msg):

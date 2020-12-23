@@ -150,6 +150,12 @@ def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
 
 
 def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
+    """
+    Generate an ack message from seq and seqack of the receiver.
+    :param seq_num: seq of the receiver.
+    :param seqack_num: seqack of the receiver.
+    :return: The ack message the receiver uses.
+    """
     sfa: bytes = ACK
     seq: bytes = seq_num.to_bytes(length=4, byteorder='big', signed=False)
     seqack: bytes = seqack_num.to_bytes(length=4, byteorder='big', signed=False)
@@ -160,10 +166,20 @@ def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
 
 
 def get_seq_num(msg: bytes):
+    """
+    Get the seq field from a message.
+    :param msg: The message.
+    :return: The seq field.
+    """
     return bytes_to_bu_int(msg[1:5])
 
 
 def get_seqack_num(msg: bytes):
+    """
+    Get the seqack field from a message.
+    :param msg: The message.
+    :return: The seq field.
+    """
     return bytes_to_bu_int(msg[5:9])
 
 
