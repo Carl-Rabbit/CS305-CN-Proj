@@ -129,7 +129,6 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
-        # TODO: extract data from msg
         return data
 
     def send(self, data: bytes):
@@ -139,7 +138,7 @@ class RDTSocket(UnreliableSocket):
         """
         if not self._send_to:
             self.set_send_to(USocket.get_sendto(id(self)))
-        print('send', data)
+        # print('send', data)
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
         data_length = len(data)
@@ -167,7 +166,7 @@ class RDTSocket(UnreliableSocket):
             # print('after sendto in send_segment', msg, self.target_addr)
 
             # print('before recvfrom in send_segment')
-            print(self)
+            # print(self)
             # TODO: WHY self._recv_from(2048) is right but self.recvfrom(2048) is wrong?
             ack_msg, frm = self._recv_from(2048)
             # print('after recvfrom in send_segment', ack_msg, frm)
