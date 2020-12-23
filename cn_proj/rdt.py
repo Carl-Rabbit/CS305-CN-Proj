@@ -55,15 +55,15 @@ class RDTSocket(UnreliableSocket):
         data, addr = self.recvfrom(2048)
         if data != utils.get_handshake_1_packet():
             raise Exception(f'msg {data} != handshake1 {utils.get_handshake_1_packet()}')
-        print('before sending handshake 2')
+        # print('before sending handshake 2')
         rpl = utils.get_handshake_2_packet()
         conn.sendto(rpl, addr)
-        print('after sending handshake 2')
-        print('before receiving handshake 3')
+        # print('after sending handshake 2')
+        # print('before receiving handshake 3')
         data, addr = self.recvfrom(2048)
         if data != utils.get_handshake_3_packet():
             raise Exception(f'msg {data} != handshake3 {utils.get_handshake_3_packet()}')
-        print('after receiving handshake 3')
+        # print('after receiving handshake 3')
         conn._recv_from = self.recvfrom
         conn.target_addr = addr
         return conn, addr
@@ -81,22 +81,22 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        print('before sending handshake 1')
+        # print('before sending handshake 1')
         data = utils.get_handshake_1_packet()
         self.sendto(data, address)
-        print('after sending handshake 1')
-        print('before receiving handshake 2')
+        # print('after sending handshake 1')
+        # print('before receiving handshake 2')
         while True:
             rpl, frm = self.recvfrom(2048)
             if rpl != utils.get_handshake_2_packet():
                 raise Exception(f'rpl {rpl} != handshake2 {utils.get_handshake_2_packet()}')
-            print('after receiving handshake 2')
-            print('before sending handshake 3')
+            # print('after receiving handshake 2')
+            # print('before sending handshake 3')
             data = utils.get_handshake_3_packet()
             self.sendto(data, address)
             self.target_addr = address
             self._recv_from = self.recvfrom
-            print('after sending handshake 3')
+            # print('after sending handshake 3')
             break
         return
         #############################################################################
@@ -117,9 +117,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        print('before self._recv_from in recv')
+        # print('before self._recv_from in recv')
         msg, addr = self._recv_from(buff_size)
-        print('after self._recv_from in recv', msg, addr)
+        # print('after self._recv_from in recv', msg, addr)
         data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
         if new_seq_num != self.seqack_num:
             raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
@@ -129,6 +129,7 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
+        # TODO: extract data from msg
         return data
 
     def send(self, data: bytes):
@@ -158,20 +159,23 @@ class RDTSocket(UnreliableSocket):
         :return: None
         """
         data_length = len(segment)
-        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=segment)
+        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num,
+                                      data=segment)
         while True:
-            print('before sendto in send_segment', msg, self.target_addr)
+            # print('before sendto in send_segment', msg, self.target_addr)
             self.sendto(msg, self.target_addr)
-            print('after sendto in send_segment', msg, self.target_addr)
+            # print('after sendto in send_segment', msg, self.target_addr)
 
-            print('before recvfrom in send_segment')
-            ack_msg, frm = self.recvfrom(2048)
-            print('after recvfrom in send_segment', ack_msg, frm)
+            # print('before recvfrom in send_segment')
+            print(self)
+            # TODO: WHY self._recv_from(2048) is right but self.recvfrom(2048) is wrong?
+            ack_msg, frm = self._recv_from(2048)
+            # print('after recvfrom in send_segment', ack_msg, frm)
             if utils.checksum(ack_msg):
                 seqack_num = utils.get_seqack_num(ack_msg)
                 if seqack_num == self.seq_num + data_length:
                     break
-                print(f'seqack_num {seqack_num} != self.seq_num {self.seqack_num} + data_length {data_length}')
+                # print(f'seqack_num {seqack_num} !=  {self.seqack_num} + d {data_length}')
             else:
                 print(f'ack_msg {ack_msg} Wrong chksm')
         self.seq_num += data_length
@@ -183,9 +187,9 @@ class RDTSocket(UnreliableSocket):
         :param ack_msg: The ack message to send.
         :return: None
         """
-        print('before sendto int rpl_ack', ack_msg, self.target_addr)
+        # print('before sendto int rpl_ack', ack_msg, self.target_addr)
         self.sendto(ack_msg, self.target_addr)
-        print('after sendto int rpl_ack', ack_msg, self.target_addr)
+        # print('after sendto int rpl_ack', ack_msg, self.target_addr)
 
     def close(self):
         """
