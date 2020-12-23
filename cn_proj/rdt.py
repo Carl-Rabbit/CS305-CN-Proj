@@ -151,7 +151,12 @@ class RDTSocket(UnreliableSocket):
         self.seq_num += data_length
         return
 
-    def rpl_ack(self, ack_msg):
+    def rpl_ack(self, ack_msg) -> None:
+        """
+        Use unreliable sendto to send the ack message.
+        :param ack_msg: The ack message to send.
+        :return: None
+        """
         self.sendto(ack_msg, self.target_addr)
 
     def close(self):

@@ -17,6 +17,16 @@ SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 LEN_HANDSHAKE_PACKET = (0).to_bytes(length=4, byteorder='big', signed=False)
 
 
+def int_to_bu_bytes(i: int, l: int) -> bytes:
+    """
+    Convert an non-negative int to big-endian unsigned bytes.
+    :param i: The non-negative int.
+    :param l: The length of bytes.
+    :return: The bytes.
+    """
+    return i.to_bytes(length=l, byteorder='big', signed=False)
+
+
 def bytes_to_bu_int(b: bytes) -> int:
     """
     Convert bytes to a big-endian unsigned int.
@@ -40,8 +50,8 @@ def generate_chksm(packet: bytes) -> bytes:
     for b in packet[1::2]:
         odd_sum += b
         odd_sum %= 256
-    even_chksm = ((256 - even_sum) % 256).to_bytes(length=1, byteorder='big', signed=False)
-    odd_chksm = ((256 - odd_sum) % 256).to_bytes(length=1, byteorder='big', signed=False)
+    even_chksm = int_to_bu_bytes(((256 - even_sum) % 256), 1)
+    odd_chksm = int_to_bu_bytes(((256 - odd_sum) % 256), 1)
     # The order is reverted here because checksum bytes are in 13 and 14. 13 is odd.
     chksm = odd_chksm + even_chksm
     return chksm
@@ -142,11 +152,11 @@ def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
     :return: The message bytes.
     """
     sfa = DATA
-    seq = seq_num.to_bytes(length=4, byteorder='big', signed=False)
-    seqack = seqack_num.to_bytes(length=4, byteorder='big', signed=False)
-    data_length = len(data).to_bytes(length=4, byteorder='big', signed=False)
-    chksm = generate_chksm(sfa + seq + seqack + data_length + data)
-    return sfa + seq + seqack + data_length + chksm + data
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(len(data), 4)
+    chksm = generate_chksm(sfa + seq + seqack + data_length_bytes + data)
+    return sfa + seq + seqack + data_length_bytes + chksm + data
 
 
 def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
@@ -157,12 +167,11 @@ def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
     :return: The ack message the receiver uses.
     """
     sfa: bytes = ACK
-    seq: bytes = seq_num.to_bytes(length=4, byteorder='big', signed=False)
-    seqack: bytes = seqack_num.to_bytes(length=4, byteorder='big', signed=False)
-    data_length: bytes = (0).to_bytes(length=4, byteorder='big', signed=False)
-    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length)
-    ack_msg = sfa + seq + seqack + data_length + chksm
-    return ack_msg
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
 
 
 def get_seq_num(msg: bytes):
