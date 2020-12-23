@@ -6,6 +6,8 @@ SYN = (128).to_bytes(length=1, byteorder='big', signed=False)
 FIN = (64).to_bytes(length=1, byteorder='big', signed=False)
 ACK = (32).to_bytes(length=1, byteorder='big', signed=False)
 
+DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
+
 # Bytes of SEQ=0 and SEQACK=0.
 SEQ_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
@@ -14,7 +16,7 @@ SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 # Length of the payload of handshakes is 0 in bytes.
 # However, the length of the whole packet is 15 in bytes.
 # Here, we use the length of the whole packet as the length, which is 15.
-LEN_HANDSHAKE_PACKET = (15).to_bytes(length=4, byteorder='big', signed=False)
+LEN_HANDSHAKE_PACKET = (0).to_bytes(length=4, byteorder='big', signed=False)
 
 
 def generate_chksm(packet: bytes) -> bytes:
@@ -108,6 +110,39 @@ def dissemble(msg: bytes) -> (bytes, bytes):
     info = msg[0:13]
     data = msg[15:]
     return info, data
+
+
+def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
+    """
+    Extract data from message. It is assumed that chksm is correct.
+    :param msg: The message bytes received.
+    :return: data bytes, seq_num int, seqack_num int, length of data int.
+    """
+    if not checksum(msg):
+        raise Exception('Wrong chksm')
+    data_length = int.from_bytes(bytes=msg[9:13], byteorder='big', signed=False)
+    if data_length != len(msg) - 15:
+        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}')
+    seq_num = msg[1:5]
+    seqack_num = msg[5:9]
+    data = msg[15:]
+    return data, seq_num, seqack_num, data_length
+
+
+def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
+    """
+    Given SEQ, SEQACK and the data bytes, generate the message bytes.
+    :param seq_num: SEQ
+    :param seqack_num: SEQACK
+    :param data: The data bytes.
+    :return: The message bytes.
+    """
+    sfa = DATA
+    seq = seq_num.to_bytes(length=4, byteorder='big', signed=False)
+    seqack = seqack_num.to_bytes(length=4, byteorder='big', signed=False)
+    data_length = len(data).to_bytes(length=4, byteorder='big', signed=False)
+    chksm = generate_chksm(sfa + seq + seqack + data_length + data)
+    return sfa + seq + seqack + data_length + chksm + data
 
 
 if __name__ == '__main__':

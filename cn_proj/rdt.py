@@ -27,6 +27,8 @@ class RDTSocket(UnreliableSocket):
         self._recv_from = None
         self.debug = debug
         self.target_addr = None
+        self.seq_num = 0
+        self.seqack_num = 0
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
@@ -48,9 +50,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        print('before self.recvfrom')
+        # print('before self.recvfrom')
         data, addr = self.recvfrom(2048)
-        print('data, addr', data.hex(), addr)
+        # print('data, addr', data.hex(), addr)
         if data == utils.get_handshake_1_packet():
             print('before sending handshake 2')
             rpl = utils.get_handshake_2_packet()
@@ -103,7 +105,7 @@ class RDTSocket(UnreliableSocket):
         #                             END OF YOUR CODE                              #
         #############################################################################
 
-    def recv(self, bufsize: int) -> bytes:
+    def recv(self, buff_size: int) -> bytes:
         """
         Receive data from the socket. 
         The return value is a bytes object representing the data received. 
@@ -113,18 +115,18 @@ class RDTSocket(UnreliableSocket):
         In other words, if someone else sends data to you from another address,
         it MUST NOT affect the data returned by this function.
         """
-        data = None
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        data, addr = self._recv_from(2048)
+        msg, addr = self._recv_from(buff_size)
+        data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
         return data
 
-    def send(self, bytes: bytes):
+    def send(self, data: bytes):
         """
         Send data to the socket. 
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
@@ -132,8 +134,9 @@ class RDTSocket(UnreliableSocket):
         self.set_send_to(USocket.get_sendto(id(self)))
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
+        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=data)
         print('target', self.target_addr)
-        self.sendto(bytes, self.target_addr)
+        self.sendto(msg, self.target_addr)
         return
 
     def close(self):
