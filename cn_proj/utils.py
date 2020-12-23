@@ -2,9 +2,10 @@
 
 # SYN, FIN and ACK bits of a message. I do not want to manipulate bits
 # directly, so I used bytes as the minimum unit.
-SYN = (128).to_bytes(length=1, byteorder='big', signed=False)
-FIN = (64).to_bytes(length=1, byteorder='big', signed=False)
-ACK = (32).to_bytes(length=1, byteorder='big', signed=False)
+HANDSHAKE_1 = (255).to_bytes(length=1, byteorder='big', signed=False)
+HANDSHAKE_2 = (254).to_bytes(length=1, byteorder='big', signed=False)
+HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
+ACK = (252).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 
@@ -68,7 +69,7 @@ def get_handshake_1_packet() -> bytes:
     Return the packet of handshake 1.
     :return: The packet of handshake 1.
     """
-    packet_without_chksm = SYN + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET
+    packet_without_chksm = HANDSHAKE_1 + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET
     return packet_without_chksm + generate_chksm(packet_without_chksm)
 
 
@@ -77,8 +78,7 @@ def get_handshake_2_packet() -> bytes:
     Return the packet of handshake 2.
     :return: The packet of handshake 2.
     """
-    handshake_1_seqack = (15).to_bytes(length=4, byteorder='big', signed=False)
-    packet_without_chksm = FIN + SEQ_0 + handshake_1_seqack + LEN_HANDSHAKE_PACKET
+    packet_without_chksm = HANDSHAKE_2 + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET
     return packet_without_chksm + generate_chksm(packet_without_chksm)
 
 
@@ -87,9 +87,7 @@ def get_handshake_3_packet() -> bytes:
     Return the packet of handshake 3.
     :return: The packet of handshake 3.
     """
-    handshake_2_seq = (15).to_bytes(length=4, byteorder='big', signed=False)
-    handshake_2_seqack = (15).to_bytes(length=4, byteorder='big', signed=False)
-    packet_without_chksm = ACK + handshake_2_seq + handshake_2_seqack + LEN_HANDSHAKE_PACKET
+    packet_without_chksm = HANDSHAKE_3 + SEQ_0 + SEQACK_0 + LEN_HANDSHAKE_PACKET
     return packet_without_chksm + generate_chksm(packet_without_chksm)
 
 
@@ -120,7 +118,7 @@ def dissemble(msg: bytes) -> (bytes, bytes):
 
 def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
     """
-    Extract data from message. It is assumed that chksm is correct.
+    Extract data from message.
     :param msg: The message bytes received.
     :return: data bytes, seq_num int, seqack_num int, length of data int.
     """
@@ -151,11 +149,29 @@ def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
     return sfa + seq + seqack + data_length + chksm + data
 
 
+def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
+    sfa: bytes = ACK
+    seq: bytes = seq_num.to_bytes(length=4, byteorder='big', signed=False)
+    seqack: bytes = seqack_num.to_bytes(length=4, byteorder='big', signed=False)
+    data_length: bytes = (0).to_bytes(length=4, byteorder='big', signed=False)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length)
+    ack_msg = sfa + seq + seqack + data_length + chksm
+    return ack_msg
+
+
+def get_seq_num(msg: bytes):
+    return bytes_to_bu_int(msg[1:5])
+
+
+def get_seqack_num(msg: bytes):
+    return bytes_to_bu_int(msg[5:9])
+
+
 if __name__ == '__main__':
     print('Testing constants.')
-    print(SYN.hex())
-    print(FIN.hex())
-    print(ACK.hex())
+    print(HANDSHAKE_1.hex())
+    print(HANDSHAKE_2.hex())
+    print(HANDSHAKE_3.hex())
     print(SEQ_0.hex())
     print(SEQACK_0.hex())
     print(get_handshake_1_packet().hex())
