@@ -17,14 +17,14 @@ SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 LEN_HANDSHAKE_PACKET = (0).to_bytes(length=4, byteorder='big', signed=False)
 
 
-def int_to_bu_bytes(i: int, l: int) -> bytes:
+def int_to_bu_bytes(i: int, bytes_length: int) -> bytes:
     """
     Convert an non-negative int to big-endian unsigned bytes.
     :param i: The non-negative int.
-    :param l: The length of bytes.
+    :param bytes_length:
     :return: The bytes.
     """
-    return i.to_bytes(length=l, byteorder='big', signed=False)
+    return i.to_bytes(length=bytes_length, byteorder='big', signed=False)
 
 
 def bytes_to_bu_int(b: bytes) -> int:

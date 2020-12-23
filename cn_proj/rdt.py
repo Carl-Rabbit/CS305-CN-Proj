@@ -117,8 +117,9 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
-        print(self.seq_num, self.seqack_num)
+        print('before self._recv_from in recv')
         msg, addr = self._recv_from(buff_size)
+        print('after self._recv_from in recv', msg, addr)
         data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
         if new_seq_num != self.seqack_num:
             raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
@@ -132,7 +133,7 @@ class RDTSocket(UnreliableSocket):
 
     def send(self, data: bytes):
         """
-        Send data to the socket. 
+        Send data to the socket.
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
         """
         if not self._send_to:
@@ -150,11 +151,21 @@ class RDTSocket(UnreliableSocket):
         return
 
     def send_segment(self, segment: bytes) -> None:
+        """
+        Send segments of data. This is called by send.
+        :param segment: The segment of data to send.
+        :return: None
+        """
         data_length = len(segment)
         msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num, data=segment)
         while True:
+            print('before sendto in send_segment', msg, self.target_addr)
             self.sendto(msg, self.target_addr)
+            print('after sendto in send_segment', msg, self.target_addr)
+
+            print('before recvfrom in send_segment')
             ack_msg, frm = self.recvfrom(2048)
+            print('after recvfrom in send_segment', ack_msg, frm)
             if utils.checksum(ack_msg):
                 seqack_num = utils.get_seqack_num(ack_msg)
                 if seqack_num == self.seq_num + data_length:
@@ -171,7 +182,10 @@ class RDTSocket(UnreliableSocket):
         :param ack_msg: The ack message to send.
         :return: None
         """
+        print('before sendto int rpl_ack', ack_msg, self.target_addr)
         self.sendto(ack_msg, self.target_addr)
+        print('after sendto int rpl_ack', ack_msg, self.target_addr)
+        return
 
     def close(self):
         """

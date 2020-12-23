@@ -9,10 +9,16 @@ if __name__ == '__main__':
     client.send(b'This is the first message.')
     print('after sending msg 1')
     print(client.seq_num, client.seqack_num)
+    print(client.recv(2048))
+
     client.send(b'This is the second message.')
     print('after sending msg 2')
     print(client.seq_num, client.seqack_num)
+    print(client.recv(2048))
+
     client.send(b'This is the third message.')
     print('after sending msg 3')
     print(client.seq_num, client.seqack_num)
+    print(client.recv(2048))
+
     print('client end')
