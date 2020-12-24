@@ -9,16 +9,14 @@ PORT = 50007  # Arbitrary non-privileged port
 if __name__ == '__main__':
     server = RDTSocket()
     server.bind(addr)
-    print('before accept')
     conn, addr = server.accept()
-    print('after accept')
     print(conn, addr)
     while True:
         data = conn.recv(2048)
         if data is None:
             break
-        print(data.decode())
         conn.send(data)
+        print(data.decode())
     # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # s.bind((HOST, PORT))
     # s.listen(1)

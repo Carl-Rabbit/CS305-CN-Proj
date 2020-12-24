@@ -10,7 +10,7 @@ if __name__ == '__main__':
     data = b''
     for line in lines:
         data += bytes(line)
-    print(data.decode())
+    # print(data.decode())
     print('prepare data end')
 
     print('client start')
@@ -18,6 +18,8 @@ if __name__ == '__main__':
     client = RDTSocket()
     client.connect(addr)
     client.send(data)
+    data = client.recv(2048)
+    print(data.decode())
     end = time.time()
     print(end - start)
     print('client end')

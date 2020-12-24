@@ -6,8 +6,11 @@ HANDSHAKE_1 = (255).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_2 = (254).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
 ACK = (252).to_bytes(length=1, byteorder='big', signed=False)
+INCOMPLETE = (251).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
+SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
+SEGMENT_END = (2).to_bytes(length=1, byteorder='big', signed=False)
 
 # Bytes of SEQ=0 and SEQACK=0.
 SEQ_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
@@ -151,7 +154,25 @@ def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
     :param data: The data bytes.
     :return: The message bytes.
     """
-    sfa = DATA
+    return generate_msg_with_sfa(SEGMENT, seq_num, seqack_num, data)
+
+
+def generate_segment_msg(seq_num: int, seqack_num: int, segment: bytes) -> bytes:
+    """
+    Given SEQ, SEQACK and the segment bytes, generate the message bytes.
+    :param seq_num: SEQ
+    :param seqack_num: SEQACK
+    :param segment: The segment bytes.
+    :return: The message bytes.
+    """
+    return generate_msg_with_sfa(SEGMENT, seq_num, seqack_num, segment)
+
+
+def generate_segment_end_msg(seq_num: int, seqack_num: int) -> bytes:
+    return generate_msg_with_sfa(SEGMENT_END, seq_num, seqack_num, b'')
+
+
+def generate_msg_with_sfa(sfa: bytes, seq_num: int, seqack_num: int, data: bytes) -> bytes:
     seq = int_to_bu_bytes(seq_num, 4)
     seqack = int_to_bu_bytes(seqack_num, 4)
     data_length_bytes = int_to_bu_bytes(len(data), 4)
@@ -190,6 +211,10 @@ def get_seqack_num(msg: bytes):
     :return: The seq field.
     """
     return bytes_to_bu_int(msg[5:9])
+
+
+def get_sfa_from_msg(msg: bytes) -> bytes:
+    return msg[0:1]
 
 
 if __name__ == '__main__':

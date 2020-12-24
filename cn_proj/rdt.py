@@ -116,18 +116,32 @@ class RDTSocket(UnreliableSocket):
         # TODO: YOUR CODE HERE                                                      #
         #############################################################################
         # print('before self._recv_from in recv')
+        data = b''
+        while True:
+            segment, sfa = self.recv_segment(buff_size)
+            if sfa == utils.DATA:
+                data = segment
+                break
+            elif sfa == utils.SEGMENT_END:
+                break
+            else:
+                data += segment
+        #############################################################################
+        #                             END OF YOUR CODE                              #
+        #############################################################################
+        return data
+
+    def recv_segment(self, buff_size: int) -> (bytes, bytes):
+        assert self._recv_from
         msg, addr = self._recv_from(buff_size)
-        # print('after self._recv_from in recv', msg, addr)
         data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
+        sfa = utils.get_sfa_from_msg(msg)
         if new_seq_num != self.seqack_num:
             raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
         self.seqack_num += data_length
         ack_msg: bytes = utils.generate_ack_msg(self.seq_num, self.seqack_num)
         self.rpl_ack(ack_msg)
-        #############################################################################
-        #                             END OF YOUR CODE                              #
-        #############################################################################
-        return data
+        return data, sfa
 
     def send(self, data: bytes):
         """
@@ -141,19 +155,39 @@ class RDTSocket(UnreliableSocket):
         assert self.target_addr, 'You did not specify where to send.'
         data_length = len(data)
         if data_length <= self.max_segment_size:
-            self.send_segment(data)
+            self.send_data(data)
         else:
             segment_num = math.ceil(data_length / (self.max_segment_size - 15))
             segment_size = math.ceil(data_length / segment_num)
             index_0 = 0
             index_1 = segment_size
             while index_1 < data_length:
+                # TODO: Delete this.
+                print(index_0, data_length)
                 segment = data[index_0:index_1]
                 self.send_segment(segment)
                 index_0 += segment_size
                 index_1 += segment_size
             if index_0 < data_length:
+                # TODO: Delete this.
+                print(index_0, data_length)
                 self.send_segment(data[index_0:])
+            self.send_segment_end()
+        return
+
+    def send_msg(self, msg: bytes) -> None:
+        data_length = len(msg) - 15
+        while True:
+            self.sendto(msg, self.target_addr)
+            # TODO: WHY self._recv_from(2048) is right but self.recvfrom(2048) is wrong?
+            ack_msg, frm = self._recv_from(2048)
+            if utils.checksum(ack_msg):
+                seqack_num = utils.get_seqack_num(ack_msg)
+                if seqack_num == self.seq_num + data_length:
+                    break
+            else:
+                print(f'ack_msg {ack_msg} Wrong chksm')
+        self.seq_num += data_length
         return
 
     def send_segment(self, segment: bytes) -> None:
@@ -162,28 +196,23 @@ class RDTSocket(UnreliableSocket):
         :param segment: The segment of data to send.
         :return: None
         """
-        data_length = len(segment)
-        msg = utils.generate_data_msg(seq_num=self.seq_num, seqack_num=self.seqack_num,
-                                      data=segment)
-        while True:
-            # print('before sendto in send_segment', msg, self.target_addr)
-            self.sendto(msg, self.target_addr)
-            # print('after sendto in send_segment', msg, self.target_addr)
-
-            # print('before recvfrom in send_segment')
-            # print(self)
-            # TODO: WHY self._recv_from(2048) is right but self.recvfrom(2048) is wrong?
-            ack_msg, frm = self._recv_from(2048)
-            # print('after recvfrom in send_segment', ack_msg, frm)
-            if utils.checksum(ack_msg):
-                seqack_num = utils.get_seqack_num(ack_msg)
-                if seqack_num == self.seq_num + data_length:
-                    break
-                # print(f'seqack_num {seqack_num} !=  {self.seqack_num} + d {data_length}')
-            else:
-                print(f'ack_msg {ack_msg} Wrong chksm')
-        self.seq_num += data_length
+        assert len(segment) < 2048 - 15
+        msg = utils.generate_segment_msg(self.seq_num, self.seqack_num, segment)
+        self.send_msg(msg)
         return
+
+    def send_segment_end(self) -> None:
+        msg = utils.generate_segment_end_msg(self.seq_num, self.seqack_num)
+        self.send_msg(msg)
+        return
+
+    def send_data(self, data: bytes) -> None:
+        """
+        Send unsegmented data.
+        """
+        assert len(data) < 2048 - 15
+        msg = utils.generate_data_msg(self.seq_num, self.seqack_num, data)
+        self.send_msg(msg)
 
     def rpl_ack(self, ack_msg) -> None:
         """
