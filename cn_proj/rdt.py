@@ -1,6 +1,4 @@
 from USocket import UnreliableSocket
-# import threading
-# import time
 import utils
 import USocket
 import math
@@ -145,10 +143,17 @@ class RDTSocket(UnreliableSocket):
         if data_length <= self.max_segment_size:
             self.send_segment(data)
         else:
-            segment_num = math.ceil(data_length / self.max_segment_size)
+            segment_num = math.ceil(data_length / (self.max_segment_size - 15))
             segment_size = math.ceil(data_length / segment_num)
-            for segment in data[::segment_size]:
+            index_0 = 0
+            index_1 = segment_size
+            while index_1 < data_length:
+                segment = data[index_0:index_1]
                 self.send_segment(segment)
+                index_0 += segment_size
+                index_1 += segment_size
+            if index_0 < data_length:
+                self.send_segment(data[index_0:])
         return
 
     def send_segment(self, segment: bytes) -> None:
