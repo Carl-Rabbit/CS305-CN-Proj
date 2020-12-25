@@ -28,7 +28,7 @@ class RDTSocket(UnreliableSocket):
         self.target_addr = None
         self.seq_num = 0
         self.seqack_num = 0
-        self.max_segment_size = 2048
+        self.max_segment_size = 2033
         #############################################################################
         # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
         #############################################################################
