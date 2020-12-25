@@ -1,24 +1,27 @@
 from rdt import RDTSocket
-
-# import socket
-
-addr = ('127.0.0.1', 9000)
-HOST = ''  # Symbolic name meaning all available interfaces
-PORT = 50007  # Arbitrary non-privileged port
+from socket import socket, AF_INET, SOCK_DGRAM, SOCK_STREAM
+import time
 
 if __name__ == '__main__':
     server = RDTSocket()
-    server.bind(addr)
-    conn, addr = server.accept()
-    print(conn, addr)
+    # server = socket(AF_INET, SOCK_STREAM)  # check what python socket does
+    server.bind(('127.0.0.1', 9000))
+
+    # check what python socket does
+    # server.listen(0)
+
     while True:
-        data = conn.recv(2048)
-        if data is None:
-            break
-        conn.send(data)
-        print(data.decode())
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # s.bind((HOST, PORT))
-    # s.listen(1)
-    # conn, addr = s.accept()
-    # print(conn, addr)
+        conn, client_addr = server.accept()
+        print(conn)
+        start = time.perf_counter()
+        while True:
+            data = conn.recv(2048)
+            if data:
+                conn.send(data)
+            else:
+                break
+        '''
+        make sure the following is reachable
+        '''
+        conn.close()
+        print(f'connection finished in {time.perf_counter() - start}s')

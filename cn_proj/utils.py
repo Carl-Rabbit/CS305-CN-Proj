@@ -5,8 +5,9 @@
 HANDSHAKE_1 = (255).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_2 = (254).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
-ACK = (252).to_bytes(length=1, byteorder='big', signed=False)
-INCOMPLETE = (251).to_bytes(length=1, byteorder='big', signed=False)
+HANDSHAKE_4 = (252).to_bytes(length=1, byteorder='big', signed=False)
+ACK = (251).to_bytes(length=1, byteorder='big', signed=False)
+INCOMPLETE = (250).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
@@ -71,9 +72,11 @@ def checksum(msg: bytes) -> bool:
     for b in msg[0::2]:
         even_chksm += b
         even_chksm %= 256
+        # print(even_chksm)
     for b in msg[1::2]:
         odd_chksm += b
         odd_chksm %= 256
+        # print(odd_chksm)
     return even_chksm == 0 and odd_chksm == 0
 
 
@@ -154,7 +157,7 @@ def generate_data_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
     :param data: The data bytes.
     :return: The message bytes.
     """
-    return generate_msg_with_sfa(SEGMENT, seq_num, seqack_num, data)
+    return generate_msg_with_sfa(DATA, seq_num, seqack_num, data)
 
 
 def generate_segment_msg(seq_num: int, seqack_num: int, segment: bytes) -> bytes:

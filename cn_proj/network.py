@@ -40,7 +40,8 @@ class Server(ThreadingUDPServer):
         data, socket = request
 
         with lock:
-            if self.rate: time.sleep(len(data) / self.rate)
+            if self.rate:
+                time.sleep(len(data) / self.rate)
             self.buffer -= len(data)
             """
             blockingly process each request
@@ -71,5 +72,5 @@ server_address = ('127.0.0.1', 12345)
 
 if __name__ == '__main__':
     print('network.py is running')
-    with Server(server_address, 10240, 10) as server:
+    with Server(server_address, 10240) as server:
         server.serve_forever()
