@@ -8,6 +8,8 @@ HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_4 = (252).to_bytes(length=1, byteorder='big', signed=False)
 ACK = (251).to_bytes(length=1, byteorder='big', signed=False)
 PACKET_TOO_LONG = (250).to_bytes(length=1, byteorder='big', signed=False)
+PROBE = (249).to_bytes(length=1, byteorder='big', signed=False)
+PROBE_RPL = (248).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
@@ -196,6 +198,24 @@ def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
     data_length_bytes = int_to_bu_bytes(0, 4)
     chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
     return sfa + seq + seqack + data_length_bytes + chksm
+
+
+def generate_probe_msg(seq_num: int, seqack_num: int) -> bytes:
+    sfa: bytes = PROBE
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
+
+
+def generate_probe_rpl_msg(seq_num: int, seqack_num: int, buff_size: bytes) -> bytes:
+    sfa: bytes = PROBE_RPL
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(len(buff_size), 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes + buff_size)
+    return sfa + seq + seqack + data_length_bytes + chksm + buff_size
 
 
 def get_seq_num(msg: bytes):

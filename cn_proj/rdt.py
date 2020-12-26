@@ -29,13 +29,17 @@ class RDTSocket(UnreliableSocket):
         self._recv_from = None
         self.debug = debug
 
+        self.set_send_to(USocket.get_sendto(id(self), rate))
+
         # This parameter is necessary.
         self.target_addr = None
 
         self.seq_num = 0
         self.seqack_num = 0
-        self.max_segment_size = 2048 - 15
         self.buff_size = 2048
+
+        self.target_buff_size: int = 2048
+        self.max_segment_size = self.target_buff_size - 15
 
         self.rtt_unit: float = 0.0
         self.rtt_multiplicand: float = self.max_segment_size / 15
@@ -52,6 +56,8 @@ class RDTSocket(UnreliableSocket):
 
         self.acker = threading.Thread(target=self.ack)
 
+        self.probed = False
+
     def print_debug(self, msg: str, caller) -> None:
         if self.debug:
             print(msg, caller)
@@ -66,28 +72,29 @@ class RDTSocket(UnreliableSocket):
         start: float = time.time_ns()
         self.handshake_1(address)
         end: float = time.time_ns()
-
+        print(end - start)
         self.rtt_unit = (end - start) * 1.2 / 1E9
-        print('estimated rtt', self.rtt_unit * self.rtt_multiplicand)
 
         while True:
             data = utils.get_handshake_3_packet()
-            self.sendto(data, address)
+            self._send_to(data, address)
             self.settimeout(1)
             try:
-                data, addr = self.recvfrom(2048)
+                data, addr = self.recvfrom(self.buff_size)
                 if data != utils.get_handshake_3_packet():
                     break
-            except TimeoutError:
+            except Exception as e:
+                print(e)
                 break
 
         self.target_addr = address
         self._recv_from = self.recvfrom
         self.setblocking(True)
-        self.sender.start()
-        self.acker.start()
         self.sender_work = True
         self.acker_work = True
+        self.sender.start()
+        self.acker.start()
+
         return
 
     def accept(self) -> ('RDTSocket', (str, int)):
@@ -100,7 +107,7 @@ class RDTSocket(UnreliableSocket):
         This function should be blocking. 
         """
         conn, addr = RDTSocket(self._rate, debug=False), None
-        data, addr = self.recvfrom(2048)
+        data, addr = self.recvfrom(self.buff_size)
         if data != utils.get_handshake_1_packet():
             # The received packet is not handshake 1. Connection is not established.
             # Therefore, None for socket and None for addr is returned.
@@ -112,7 +119,7 @@ class RDTSocket(UnreliableSocket):
         while True:
             self.settimeout(0.01)
             try:
-                data, addr = self.recvfrom(2048)
+                data, addr = self.recvfrom(self.buff_size)
             except Exception as e:
                 # timeout
                 self.print_debug(str(e), self.accept)
@@ -143,10 +150,10 @@ class RDTSocket(UnreliableSocket):
     def handshake_1(self, addr: (str, int)) -> None:
         while True:
             data = utils.get_handshake_1_packet()
-            self.sendto(data, addr)
+            self._send_to(data, addr)
             self.settimeout(0.01)
             try:
-                rpl, frm = self.recvfrom(2048)
+                rpl, frm = self.recvfrom(self.buff_size)
             except Exception as e:
                 # Timeout.
                 print(e)
@@ -192,15 +199,43 @@ class RDTSocket(UnreliableSocket):
         print('recv time', (t2 - t1) // 1000, '1E-3 milliseconds')
         return data
 
+    def probe(self):
+        msg = utils.generate_probe_msg(self.seq_num, self.seqack_num)
+        self.sender_work = False
+        self.acker_work = False
+        self.settimeout(0.5)
+        while True:
+            self._send_to(msg, self.target_addr)
+            try:
+                rpl, frm = self._recv_from(self.buff_size)
+                sfa = utils.get_sfa_from_msg(rpl)
+                if sfa != utils.PROBE_RPL:
+                    continue
+                data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(rpl)
+                self.target_buff_size = utils.bytes_to_bu_int(data)
+                self.max_segment_size = self.target_buff_size - 15
+                break
+            except Exception as e:
+                print(e)
+                continue
+        self.probed = True
+        self.sender_work = True
+        self.acker_work = True
+        self.setblocking(True)
+
     def send(self, data: bytes):
         """
         Send data to the socket.
         The socket must be connected to a remote socket, i.e. self._send_to must not be none.
         """
         if not self._send_to:
-            self.set_send_to(USocket.get_sendto(id(self)))
+            self.set_send_to(USocket.get_sendto(id(self), self._rate))
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
+
+        if not self.probed:
+            self.probe()
+
         data_length = len(data)
         if data_length <= self.max_segment_size:
             self.send_buffer.put(data)
@@ -211,12 +246,13 @@ class RDTSocket(UnreliableSocket):
             index_0 = 0
             index_1 = segment_size
             while index_1 < data_length:
+                print(f'{index_0}, {index_1}, {data_length}')
                 segment = data[index_0:index_1]
                 self.send_buffer.put(segment)
                 index_0 += segment_size
                 index_1 += segment_size
             if index_0 < data_length:
-                self.print_debug(f'{index_0}, {index_1}, {data_length}', self.send)
+                print(f'{index_0}, {data_length}, {data_length}')
                 self.send_buffer.put(data[index_0:])
         return
 
@@ -226,9 +262,23 @@ class RDTSocket(UnreliableSocket):
                 if self.sending_zone != b'':
                     print(f'send {self.seq_num} data len {len(self.sending_zone)} at {time.time()}')
                     self.send_data(self.sending_zone)
+                    # TODO
                     time.sleep(self.rtt_multiplicand * self.rtt_unit)
                 else:
                     self.sending_zone = self.send_buffer.get()
+
+    def probe_rpl(self):
+        self.sender_work = False
+        self.acker_work = False
+
+        buff_size: int = self.buff_size
+        data_length: int = math.ceil(math.log(buff_size + 1, 256))
+        data = utils.int_to_bu_bytes(buff_size, data_length)
+        msg = utils.generate_probe_rpl_msg(self.seq_num, self.seqack_num, data)
+        self._send_to(msg, self.target_addr)
+
+        self.sender_work = True
+        self.acker_work = True
 
     def ack(self):
         while True:
@@ -241,43 +291,34 @@ class RDTSocket(UnreliableSocket):
                 if not utils.checksum(msg):
                     continue
                 sfa = utils.get_sfa_from_msg(msg)
-
-                if sfa != utils.ACK:
+                if sfa == utils.PROBE:
+                    print('probe msg received')
+                    self.probe_rpl()
+                    continue
+                elif sfa == utils.PROBE_RPL:
+                    continue
+                elif sfa == utils.DATA:
                     segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
                         msg)
-                    print(f'data received {new_seq_num}')
+                    print(f'receive {self.seqack_num} len {data_length} at {time.time()}')
                     if new_seq_num == self.seqack_num:
-                        print(f'receive {self.seqack_num} len {data_length} at {time.time()}')
                         ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
                         self.seqack_num += data_length
+                        self.sender_work = False
                         self.rpl_ack(ack_msg)
+                        self.sender_work = True
                         self.recv_buffer.put(msg)
                     continue
-
-                print('ack msg received')
-                data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
-                if self.seq_num == new_seqack_num:
-                    self.seq_num += len(self.sending_zone)
-                    self.sending_zone = b''
+                elif sfa == utils.ACK:
+                    print('ack msg received')
+                    data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
+                        msg)
+                    if self.seq_num == new_seqack_num:
+                        self.seq_num += len(self.sending_zone)
+                        self.sending_zone = b''
 
     def send_msg(self, msg: bytes) -> None:
-        self.sendto(msg, self.target_addr)
-        return
-
-    def send_segment(self, segment: bytes) -> None:
-        """
-        Send segments of data. This is called by send.
-        :param segment: The segment of data to send.
-        :return: None
-        """
-        assert len(segment) < 2048 - 15
-        msg = utils.generate_segment_msg(self.seq_num, self.seqack_num, segment)
-        self.send_msg(msg)
-        return
-
-    def send_segment_end(self) -> None:
-        msg = utils.generate_segment_end_msg(self.seq_num, self.seqack_num)
-        self.send_msg(msg)
+        self._send_to(msg, self.target_addr)
         return
 
     def send_data(self, data: bytes) -> None:
@@ -315,9 +356,3 @@ class RDTSocket(UnreliableSocket):
 
     def set_recv_from(self, recv_from):
         self._recv_from = recv_from
-
-
-"""
-You can define additional functions and classes to do thing such as packing/unpacking packets, or threading.
-
-"""
