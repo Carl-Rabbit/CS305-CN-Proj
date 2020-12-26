@@ -11,6 +11,9 @@ PACKET_TOO_LONG = (250).to_bytes(length=1, byteorder='big', signed=False)
 PROBE = (249).to_bytes(length=1, byteorder='big', signed=False)
 PROBE_RPL = (248).to_bytes(length=1, byteorder='big', signed=False)
 
+CLOSE = (247).to_bytes(length=1, byteorder='big', signed=False)
+CLOSE_RPL = (247).to_bytes(length=1, byteorder='big', signed=False)
+
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT_END = (2).to_bytes(length=1, byteorder='big', signed=False)

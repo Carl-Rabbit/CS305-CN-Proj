@@ -72,19 +72,19 @@ class RDTSocket(UnreliableSocket):
         start: float = time.time_ns()
         self.handshake_1(address)
         end: float = time.time_ns()
-        print(end - start)
         self.rtt_unit = (end - start) * 1.2 / 1E9
+        print('estimated rtt unit', self.rtt_unit)
 
+        data = utils.get_handshake_3_packet()
         while True:
-            data = utils.get_handshake_3_packet()
             self._send_to(data, address)
-            self.settimeout(1)
+            self.settimeout(2)
             try:
-                data, addr = self.recvfrom(self.buff_size)
-                if data != utils.get_handshake_3_packet():
-                    break
+                rpl, addr = self._recv_from(self.buff_size)
+                if rpl == utils.get_handshake_2_packet():
+                    continue
             except Exception as e:
-                print(e)
+                print('it is assumed that connection is established.', e, self.connect)
                 break
 
         self.target_addr = address
@@ -107,60 +107,56 @@ class RDTSocket(UnreliableSocket):
         This function should be blocking. 
         """
         conn, addr = RDTSocket(self._rate, debug=False), None
-        data, addr = self.recvfrom(self.buff_size)
-        if data != utils.get_handshake_1_packet():
-            # The received packet is not handshake 1. Connection is not established.
-            # Therefore, None for socket and None for addr is returned.
-            return None, None
+        conn.set_send_to(USocket.get_sendto(id(conn), conn._rate))
+        while True:
+            data, addr = self.recvfrom(self.buff_size)
+            if data == utils.get_handshake_1_packet():
+                break
 
         start: float = time.time_ns()
         rpl = utils.get_handshake_2_packet()
-        conn.sendto(rpl, addr)
+        self._send_to(rpl, addr)
         while True:
-            self.settimeout(0.01)
+            self.settimeout(2)
             try:
                 data, addr = self.recvfrom(self.buff_size)
+                if data == utils.get_handshake_3_packet():
+                    break
             except Exception as e:
                 # timeout
-                self.print_debug(str(e), self.accept)
-                conn.sendto(rpl, addr)
+                print(e, self.accept)
+                self._send_to(rpl, addr)
                 continue
 
-            if data != utils.get_handshake_3_packet():
-                conn.sendto(rpl, addr)
-            break
-
-        self.setblocking(True)
         end: float = time.time_ns()
         self.rtt_unit = (end - start) * 1.2 / 1E9
         print('estimated rtt', self.rtt_unit * self.rtt_multiplicand)
 
         conn._recv_from = self.recvfrom
         conn.target_addr = addr
+        conn.rtt_unit = self.rtt_unit
         conn.is_receiving = False
         conn.setblocking(True)
         conn.sender.start()
         conn.acker.start()
         conn.sender_work = True
         conn.acker_work = True
-        conn.print_debug('accept end', self.accept)
         conn.rtt_unit = (end - start) * 1.2 / 1E9
         return conn, addr
 
     def handshake_1(self, addr: (str, int)) -> None:
+        data = utils.get_handshake_1_packet()
         while True:
-            data = utils.get_handshake_1_packet()
             self._send_to(data, addr)
-            self.settimeout(0.01)
+            self.settimeout(2)
             try:
                 rpl, frm = self.recvfrom(self.buff_size)
+                if rpl == utils.get_handshake_2_packet():
+                    self.setblocking(True)
+                    break
             except Exception as e:
-                # Timeout.
-                print(e)
+                print(e, self.handshake_1)
                 continue
-            if rpl == utils.get_handshake_2_packet():
-                self.setblocking(True)
-                break
 
     def recv(self, buff_size: int):
         """
@@ -263,7 +259,7 @@ class RDTSocket(UnreliableSocket):
                     print(f'send {self.seq_num} data len {len(self.sending_zone)} at {time.time()}')
                     self.send_data(self.sending_zone)
                     # TODO
-                    time.sleep(self.rtt_multiplicand * self.rtt_unit)
+                    time.sleep(1)
                 else:
                     self.sending_zone = self.send_buffer.get()
 
@@ -314,6 +310,7 @@ class RDTSocket(UnreliableSocket):
                     data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
                         msg)
                     if self.seq_num == new_seqack_num:
+                        print(f'rdt {new_seq_num} len {self.sending_zone}')
                         self.seq_num += len(self.sending_zone)
                         self.sending_zone = b''
 
