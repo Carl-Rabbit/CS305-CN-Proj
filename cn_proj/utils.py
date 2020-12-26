@@ -7,7 +7,7 @@ HANDSHAKE_2 = (254).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_4 = (252).to_bytes(length=1, byteorder='big', signed=False)
 ACK = (251).to_bytes(length=1, byteorder='big', signed=False)
-INCOMPLETE = (250).to_bytes(length=1, byteorder='big', signed=False)
+PACKET_TOO_LONG = (250).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
