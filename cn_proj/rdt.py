@@ -43,6 +43,7 @@ class RDTSocket(UnreliableSocket):
 
         self.rtt_unit: float = 0.0
         self.rtt_multiplicand: float = self.max_segment_size / 15
+        self.estimated_rtt = 1
 
         self.send_buffer: Queue = Queue()
         self.recv_buffer: Queue = Queue()
@@ -259,7 +260,7 @@ class RDTSocket(UnreliableSocket):
                     print(f'send {self.seq_num} data len {len(self.sending_zone)} at {time.time()}')
                     self.send_data(self.sending_zone)
                     # TODO
-                    time.sleep(1)
+                    time.sleep(self.estimated_rtt)
                 else:
                     self.sending_zone = self.send_buffer.get()
 
@@ -277,6 +278,7 @@ class RDTSocket(UnreliableSocket):
         self.acker_work = True
 
     def ack(self):
+        # TODO: Ack and receive ack part is wrong.
         while True:
             if self._recv_from and self.acker_work:
                 try:
