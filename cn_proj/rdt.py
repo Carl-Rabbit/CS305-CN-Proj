@@ -116,6 +116,7 @@ class RDTSocket(UnreliableSocket):
                 data = segment
                 break
             elif sfa == utils.CLOSE:
+                print('close msg')
                 self.target_closed = True
                 data = b''
                 break
@@ -131,14 +132,22 @@ class RDTSocket(UnreliableSocket):
     def recv_segment(self, buff_size: int) -> (bytes, bytes):
         assert self._recv_from
         msg, addr = self._recv_from(buff_size)
-        data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
-        sfa = utils.get_sfa_from_msg(msg)
-        if new_seq_num != self.seqack_num:
-            raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
-        self.seqack_num += data_length
-        ack_msg: bytes = utils.generate_ack_msg(self.seq_num, self.seqack_num)
-        self.rpl_ack(ack_msg)
-        return data, sfa
+        while True:
+            try:
+                data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
+                sfa = utils.get_sfa_from_msg(msg)
+                if new_seq_num != self.seqack_num:
+                    raise Exception(f'new_seq_num: {new_seqack_num} != seqack_num: {self.seqack_num}')
+                self.seqack_num += data_length
+                ack_msg: bytes = utils.generate_ack_msg(self.seq_num, self.seqack_num)
+                self.rpl_ack(ack_msg)
+                return data, sfa
+            except utils.CorruptedPacketException as e:
+                print(e)
+                continue
+            except Exception as e:
+                print(e)
+                continue
 
     def rpl_probe(self):
         buff_size: bytes = utils.int_to_bu_bytes(self.buff_size, math.ceil(math.log2(self.buff_size)) + 1)
@@ -178,9 +187,9 @@ class RDTSocket(UnreliableSocket):
         data_length = len(data)
 
         # probe once
-        if not self.probed:
-            self.max_segment_size = self.probe() - 15
-            self.probed = True
+        # if not self.probed:
+        #     self.max_segment_size = self.probe() - 15
+        #     self.probed = True
 
         # always probe
         self.max_segment_size = self.probe() - 15

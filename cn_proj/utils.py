@@ -23,6 +23,11 @@ SEQACK_0 = (0).to_bytes(length=4, byteorder='big', signed=False)
 LEN_HANDSHAKE_PACKET = (0).to_bytes(length=4, byteorder='big', signed=False)
 
 
+class CorruptedPacketException(Exception):
+    def __init__(self):
+        self.message = 'CorruptedPacketException'
+
+
 def int_to_bu_bytes(i: int, bytes_length: int) -> bytes:
     """
     Convert an non-negative int to big-endian unsigned bytes.
@@ -139,10 +144,10 @@ def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
     :return: data bytes, seq_num int, seqack_num int, length of data int.
     """
     if not checksum(msg):
-        raise Exception('Wrong chksm')
+        raise CorruptedPacketException()
     data_length = bytes_to_bu_int(msg[9:13])
     if data_length != len(msg) - 15:
-        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}')
+        raise CorruptedPacketException()
     data = msg[15:]
     seq_num = bytes_to_bu_int(msg[1:5])
     seqack_num = bytes_to_bu_int(msg[5:9])
