@@ -10,16 +10,22 @@ if __name__ == '__main__':
     # server.listen(0)
 
     while True:
+        print('accepting')
         conn, client_addr = server.accept()
         start = time.perf_counter()
+        i: int = 0
         while True:
-            data = conn.recv(2048)
+            data = conn.recv(4096)
             if data:
                 conn.send(data)
+                print(i)
             else:
+                print('break')
                 break
+            i += 1
         '''
         make sure the following is reachable
         '''
+        print('before close')
         conn.close()
         print(f'connection finished in {time.perf_counter() - start}s')

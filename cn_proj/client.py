@@ -41,7 +41,6 @@ if __name__=='__main__':
             while len(echo) < len(encoded)*(i+1):
                 reply = client.recv(slice_size)
                 echo += reply
-
     client.close()
 
     '''
