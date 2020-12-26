@@ -32,13 +32,6 @@ class RDTSocket(UnreliableSocket):
         self.target_closed = False
         self.probed = False
         self.buff_size = -1
-        #############################################################################
-        # TODO: ADD YOUR NECESSARY ATTRIBUTES HERE
-        #############################################################################
-
-        #############################################################################
-        #                             END OF YOUR CODE                              #
-        #############################################################################
 
     def accept(self) -> ('RDTSocket', (str, int)):
         """
@@ -81,9 +74,6 @@ class RDTSocket(UnreliableSocket):
         Connect to a remote socket at address.
         Corresponds to the process of establishing a connection on the client side.
         """
-        #############################################################################
-        # TODO: YOUR CODE HERE                                                      #
-        #############################################################################
         # print('before sending handshake 1')
         data = utils.get_handshake_1_packet()
         self.sendto(data, address)
@@ -117,9 +107,6 @@ class RDTSocket(UnreliableSocket):
         it MUST NOT affect the data returned by this function.
         """
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
-        #############################################################################
-        # TODO: YOUR CODE HERE                                                      #
-        #############################################################################
         # print('before self._recv_from in recv')
         data = b''
         self.buff_size = buff_size
@@ -139,9 +126,6 @@ class RDTSocket(UnreliableSocket):
                 self.rpl_probe()
             else:
                 data += segment
-        #############################################################################
-        #                             END OF YOUR CODE                              #
-        #############################################################################
         return data
 
     def recv_segment(self, buff_size: int) -> (bytes, bytes):
