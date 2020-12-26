@@ -51,16 +51,24 @@ class RDTSocket(UnreliableSocket):
         """
         conn, addr = RDTSocket(self._rate), None
         while True:
+            self.setblocking(True)
             data, addr = self.recvfrom(2048)
             try:
                 if data != utils.get_handshake_1_packet():
                     continue
-                rpl = utils.get_handshake_2_packet()
-                conn.sendto(rpl, addr)
 
-                data, addr = self.recvfrom(2048)
-                if data != utils.get_handshake_3_packet():
-                    continue
+                self.settimeout(2)
+                rpl = utils.get_handshake_2_packet()
+                while True:
+                    conn.sendto(rpl, addr)
+                    try:
+                        data, addr = self.recvfrom(2048)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    if data == utils.get_handshake_3_packet():
+                        break
+
                 conn._recv_from = self.recvfrom
                 conn.target_addr = addr
                 return conn, addr
