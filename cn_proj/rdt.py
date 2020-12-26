@@ -52,7 +52,7 @@ class RDTSocket(UnreliableSocket):
         # self.acker.start()
 
     def print_debug(self, msg: str, caller) -> None:
-        if self.debug:
+        if False:
             print(msg, caller)
 
     def connect(self, address: (str, int)) -> None:
@@ -155,56 +155,28 @@ class RDTSocket(UnreliableSocket):
         data = b''
 
         while True:
-            if self.recv_buffer.empty():
-                continue
+            # if self.recv_buffer.empty():
+            #     continue
             msg = self.recv_buffer.get()
             segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
             sfa = msg[0:1]
             if sfa == utils.ACK and self.seq_num + data_length == new_seqack_num:
-                print(f'rdt {self.seq_num}')
                 self.seq_num += len(self.sending_zone)
                 self.sending_zone = b''
             elif sfa == utils.DATA or sfa == utils.SEGMENT:
-                if new_seq_num == self.seqack_num:
-                    print(f'ack {new_seq_num}')
-                    ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
-                    self.seqack_num += data_length
-                    self.rpl_ack(ack_msg)
-                    data = segment
-                    break
+                data = segment
+                break
+                # if new_seq_num == self.seqack_num:
+                #     print(f'ack {new_seq_num}')
+                #     ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
+                #     self.seqack_num += data_length
+                #     self.rpl_ack(ack_msg)
+                #     data = segment
+                #     break
             elif sfa == utils.SEGMENT_END:
                 break
             else:
                 data += segment
-
-        # self.is_receiving = True
-        # # self.setblocking(True)
-        # while True:
-        #     self.settimeout(0.1)
-        #     try:
-        #         msg, addr = self._recv_from(buff_size)
-        #     except Exception as e:
-        #         # print(e)
-        #         continue
-        #     segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
-        #     sfa = msg[0:1]
-        #     if sfa == utils.ACK and self.seq_num + data_length == new_seqack_num:
-        #         print(f'rdt {self.seq_num}')
-        #         self.seq_num += len(self.sending_zone)
-        #         self.sending_zone = b''
-        #     elif sfa == utils.DATA or sfa == utils.SEGMENT:
-        #         if new_seq_num == self.seqack_num:
-        #             print(f'ack {new_seq_num}')
-        #             ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
-        #             self.seqack_num += data_length
-        #             self.rpl_ack(ack_msg)
-        #             data = segment
-        #             break
-        #     elif sfa == utils.SEGMENT_END:
-        #         break
-        #     else:
-        #         data += segment
-        # self.is_receiving = False
 
         if data:
             print('data is returned!')
@@ -258,23 +230,22 @@ class RDTSocket(UnreliableSocket):
                 self.print_debug(f'{index_0}, {index_1}, {data_length}', self.send)
                 self.send_buffer.put(data[index_0:])
         t2 = time.time_ns()
-        print('send time', (t2 - t1) // 1000, '1E-3 milliseconds')
+        # print('send time', (t2 - t1) // 1000, '1E-3 milliseconds')
         return
 
     def send_from_buffer(self):
         while True:
-            time.sleep(0.4)
             if self.sender_work:
                 if self.sending_zone != b'':
-                    print(f'send {self.seq_num} from buffer')
+                    print(f'send {self.seq_num} data len {len(self.sending_zone)} at {time.time()}')
                     self.send_data(self.sending_zone)
+                    time.sleep(0.3)
                 else:
                     self.sending_zone = self.send_buffer.get()
 
     def ack(self):
         while True:
             if self._recv_from and self.acker_work:
-                print('i am acking')
                 try:
                     msg, frm = self._recv_from(2048)
                 except Exception as e:
@@ -282,15 +253,28 @@ class RDTSocket(UnreliableSocket):
                     continue
                 if not utils.checksum(msg):
                     continue
-                sfa = msg[0]
+                sfa = utils.get_sfa_from_msg(msg)
+
                 if sfa != utils.ACK:
-                    self.recv_buffer.put(msg)
+                    segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
+                        msg)
+                    print(f'data received {new_seq_num}')
+                    if new_seq_num == self.seqack_num:
+                        print(f'receive {self.seqack_num} len {data_length} at {time.time()}')
+                        if data_length == 0:
+                            print(msg[0])
+                        ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
+                        self.seqack_num += data_length
+                        self.rpl_ack(ack_msg)
+                        self.recv_buffer.put(msg)
                     continue
+
+                print('ack msg received')
                 data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
-                if self.seq_num + data_length == new_seqack_num:
+                if self.seq_num == new_seqack_num:
+                    print(f'rdt from {self.seq_num} len {len(self.sending_zone)} at {time.time()}')
+                    self.seq_num += len(self.sending_zone)
                     self.sending_zone = b''
-                    self.print_debug(f'rdt {self.seq_num}', None)
-                    self.seq_num += data_length
 
     def send_msg(self, msg: bytes) -> None:
         self.sendto(msg, self.target_addr)
@@ -340,7 +324,7 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
-        super().close()
+        # super().close()
 
     def set_send_to(self, send_to):
         self._send_to = send_to
