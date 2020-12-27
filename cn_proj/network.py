@@ -48,9 +48,9 @@ class Server(ThreadingUDPServer):
             corrupt_rate: float = 1E-5
             if random.random() < loss_rate:
                 return
-            for i in range(len(data) - 1):
-                if random.random() < corrupt_rate:
-                    data[i] = data[:i] + (data[i] + 1).to_bytes(1, 'big') + data[i + 1:]
+            if random.random() < corrupt_rate:
+                i: int = random.randint(0, len(data) - 1)
+                data[i] = data[i] ^ random.randbytes(1)
 
             """
             blockingly process each request

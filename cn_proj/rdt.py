@@ -123,7 +123,9 @@ class RDTSocket(UnreliableSocket):
             self.settimeout(2)
             try:
                 data, addr = self.recvfrom(self.buff_size)
-                if data == utils.get_handshake_3_packet():
+                if data == utils.get_handshake_1_packet():
+                    self._send_to(rpl, addr)
+                elif data == utils.get_handshake_3_packet():
                     break
             except Exception as e:
                 # timeout
@@ -156,6 +158,7 @@ class RDTSocket(UnreliableSocket):
             try:
                 rpl, frm = self.recvfrom(self.buff_size)
                 if rpl == utils.get_handshake_2_packet():
+                    print('handshake 2 received')
                     self.setblocking(True)
                     break
             except Exception as e:
@@ -189,13 +192,18 @@ class RDTSocket(UnreliableSocket):
             if sfa == utils.DATA:
                 data = segment
                 break
+            elif sfa == utils.CLOSE:
+                assert segment == b''
+                self.close()
+                data = segment
+                break
             else:
                 print('what did you put in buffer?', sfa)
 
         if data:
             print('data is returned!')
         t2 = time.time_ns()
-        print('recv time', (t2 - t1) // 1000, '1E-3 milliseconds')
+        # print('recv time', (t2 - t1) // 1000, '1E-3 milliseconds')
         return data
 
     def probe(self):
@@ -261,7 +269,8 @@ class RDTSocket(UnreliableSocket):
                 if self.sending_zone != b'':
                     print(f'send {self.seq_num} data len {len(self.sending_zone)} at {time.time()}')
                     self.send_data(self.sending_zone)
-                    # TODO
+
+                    # TODO: Congestion control.
                     time.sleep(self.estimated_rtt)
                 else:
                     self.sending_zone = self.send_buffer.get()
@@ -331,6 +340,17 @@ class RDTSocket(UnreliableSocket):
                         self.seq_num += len(self.sending_zone)
                         self.sending_zone = b''
                         self.sender_work = True
+                elif sfa == utils.CLOSE:
+                    try:
+                        data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
+                    except Exception as e:
+                        print(e, self.ack)
+                        continue
+                    if seq_num == self.seqack_num:
+                        self.sender_work = False
+                        self.close_rpl()
+                        self.recv_buffer.put(msg)
+                        self.sender_work = True
                 else:
                     print('what did you receive?', sfa)
 
@@ -354,25 +374,64 @@ class RDTSocket(UnreliableSocket):
         """
         self.sendto(ack_msg, self.target_addr)
 
+    def close_rpl(self) -> None:
+        msg = utils.generate_close_rpl_msg(self.seq_num, self.seqack_num)
+        self._send_to(msg, self.target_addr)
+
+        # This is the only place self.target_closed is assigned True.
+        self.target_closed = True
+
     def close(self):
         """
         Finish the connection and release resources. For simplicity, assume that
         after a socket is closed, neither further sends nor receives are allowed.
         """
-        #############################################################################
-        # TODO: YOUR CODE HERE                                                      #
-        #############################################################################
-
-        #############################################################################
-        #                             END OF YOUR CODE                              #
-        #############################################################################
-
         while not self.send_buffer.empty() or self.sending_zone:
             continue
         self.sender_work = False
         self.closed = True
 
-        # super().close()
+        self.acker_work = False
+        msg = utils.generate_close_msg(self.seq_num, self.seqack_num)
+        self.settimeout(1)
+        while True:
+            self._send_to(msg, self.target_addr)
+            try:
+                rpl, frm = self._recv_from(self.buff_size)
+            except Exception as e:
+                print(e, self.close)
+                continue
+            if not utils.checksum(rpl):
+                continue
+            sfa = utils.get_sfa_from_msg(rpl)
+            try:
+                data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
+            except Exception as e:
+                print(e, self.close)
+                continue
+            if sfa != utils.CLOSE_RPL:
+                continue
+            if seq_num != self.seqack_num:
+                print('wrong order in close')
+                continue
+            break
+
+        if not self.target_closed:
+            self.acker_work = True
+            while not self.target_closed:
+                continue
+            self.acker_work = False
+            self.settimeout(2)
+            while True:
+                try:
+                    self._recv_from(self.buff_size)
+                    self.close_rpl()
+                except Exception as e:
+                    print('target is really closed', e)
+                    break
+        self.sender_work = False
+        self.acker_work = False
+        super().close()
 
     def set_send_to(self, send_to):
         self._send_to = send_to

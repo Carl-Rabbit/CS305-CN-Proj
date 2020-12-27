@@ -147,7 +147,7 @@ def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
         raise Exception('Wrong chksm')
     data_length = bytes_to_bu_int(msg[9:13])
     if data_length != len(msg) - 15:
-        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}')
+        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}, {msg}')
     data = msg[15:]
     seq_num = bytes_to_bu_int(msg[1:5])
     seqack_num = bytes_to_bu_int(msg[5:9])
