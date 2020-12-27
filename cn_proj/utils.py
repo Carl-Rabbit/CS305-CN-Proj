@@ -77,11 +77,9 @@ def checksum(msg: bytes) -> bool:
     for b in msg[0::2]:
         even_chksm += b
         even_chksm %= 256
-        # print(even_chksm)
     for b in msg[1::2]:
         odd_chksm += b
         odd_chksm %= 256
-        # print(odd_chksm)
     return even_chksm == 0 and odd_chksm == 0
 
 

@@ -44,8 +44,10 @@ if __name__ == '__main__':
                 reply = client.recv(slice_size)
                 echo += reply
                 print(len(echo), len(encoded))
-
-    client.close()
+    print(f'transmitted {len(encoded) * count}bytes in {time.perf_counter() - start}s')
+    diff = Differ().compare((data * count).splitlines(keepends=True),
+                            echo.decode().splitlines(keepends=True))
+    # client.close()
 
     '''
     make sure the following is reachable
