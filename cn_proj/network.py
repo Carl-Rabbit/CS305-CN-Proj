@@ -81,5 +81,5 @@ server_address = ('127.0.0.1', 12345)
 
 if __name__ == '__main__':
     print('network.py is running')
-    with Server(server_address, 20480) as server:
+    with Server(server_address, 204800) as server:
         server.serve_forever()

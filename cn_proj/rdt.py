@@ -78,6 +78,7 @@ class RDTSocket(UnreliableSocket):
 
         data = utils.get_handshake_3_packet()
         while True:
+            assert self._send_to is not None, 'problem in _send_to'
             self._send_to(data, address)
             self.settimeout(2)
             try:
@@ -133,6 +134,7 @@ class RDTSocket(UnreliableSocket):
         self.rtt_unit = (end - start) * 1.2 / 1E9
         print('estimated rtt', self.rtt_unit * self.rtt_multiplicand)
 
+        self.setblocking(True)
         conn._recv_from = self.recvfrom
         conn.target_addr = addr
         conn.rtt_unit = self.rtt_unit
@@ -177,18 +179,15 @@ class RDTSocket(UnreliableSocket):
             # if self.recv_buffer.empty():
             #     continue
             msg = self.recv_buffer.get()
+            if utils.generate_chksm(msg):
+                continue
             segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
             sfa = msg[0:1]
-            if sfa == utils.ACK and self.seq_num + data_length == new_seqack_num:
-                self.seq_num += len(self.sending_zone)
-                self.sending_zone = b''
-            elif sfa == utils.DATA or sfa == utils.SEGMENT:
+            if sfa == utils.DATA:
                 data = segment
                 break
-            elif sfa == utils.SEGMENT_END:
-                break
             else:
-                data += segment
+                print('what did you put in buffer?', sfa)
 
         if data:
             print('data is returned!')
@@ -200,7 +199,7 @@ class RDTSocket(UnreliableSocket):
         msg = utils.generate_probe_msg(self.seq_num, self.seqack_num)
         self.sender_work = False
         self.acker_work = False
-        self.settimeout(0.5)
+        self.settimeout(2)
         while True:
             self._send_to(msg, self.target_addr)
             try:
@@ -213,7 +212,7 @@ class RDTSocket(UnreliableSocket):
                 self.max_segment_size = self.target_buff_size - 15
                 break
             except Exception as e:
-                print(e)
+                print(e, self.probe)
                 continue
         self.probed = True
         self.sender_work = True
@@ -278,15 +277,15 @@ class RDTSocket(UnreliableSocket):
         self.acker_work = True
 
     def ack(self):
-        # TODO: Ack and receive ack part is wrong.
         while True:
             if self._recv_from and self.acker_work:
                 try:
                     msg, frm = self._recv_from(self.buff_size)
                 except Exception as e:
-                    print(e)
+                    print(e, self.ack)
                     continue
                 if not utils.checksum(msg):
+                    print('The packet is corrupted!')
                     continue
                 sfa = utils.get_sfa_from_msg(msg)
                 if sfa == utils.PROBE:
@@ -296,25 +295,39 @@ class RDTSocket(UnreliableSocket):
                 elif sfa == utils.PROBE_RPL:
                     continue
                 elif sfa == utils.DATA:
-                    segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
-                        msg)
+                    segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
                     print(f'receive {self.seqack_num} len {data_length} at {time.time()}')
                     if new_seq_num == self.seqack_num:
+                        # receive 0, ack 0, then self.seqack += len(segment)
                         ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
                         self.seqack_num += data_length
                         self.sender_work = False
                         self.rpl_ack(ack_msg)
                         self.sender_work = True
                         self.recv_buffer.put(msg)
-                    continue
+                        continue
+                    elif new_seq_num < self.seqack_num:
+                        ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
+                        self.sender_work = False
+                        self.rpl_ack(ack_msg)
+                        self.sender_work = True
+                        continue
                 elif sfa == utils.ACK:
-                    print('ack msg received')
-                    data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(
-                        msg)
+                    data, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
+                    print('ack msg received', new_seqack_num)
                     if self.seq_num == new_seqack_num:
-                        print(f'rdt {new_seq_num} len {self.sending_zone}')
+                        print(f'rdt {self.seq_num} len {len(self.sending_zone)}')
+                        self.sender_work = False
                         self.seq_num += len(self.sending_zone)
                         self.sending_zone = b''
+                        self.sender_work = True
+                    elif self.seq_num < new_seqack_num:
+                        self.sender_work = False
+                        self.seq_num += len(self.sending_zone)
+                        self.sending_zone = b''
+                        self.sender_work = True
+                else:
+                    print('what did you receive?', sfa)
 
     def send_msg(self, msg: bytes) -> None:
         self._send_to(msg, self.target_addr)
