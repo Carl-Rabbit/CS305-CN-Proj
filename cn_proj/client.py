@@ -13,11 +13,11 @@ if __name__ == '__main__':
     slice_size = 2048
     blocking_send = False
 
-    with open('data/alice30.txt', 'r') as f:
+    with open('data/test1.txt', 'r') as f:
         data = f.read()
         encoded = data.encode()
         assert len(data) == len(encoded)
-
+    print(encoded)
     '''
     check if your rdt pass either of the two
     mode A may be significantly slower when slice size is small
@@ -38,12 +38,11 @@ if __name__ == '__main__':
         print('transmit in mode B')
         start = time.perf_counter()
         for i in range(count):
-            print(i)
             client.send(encoded)
             while len(echo) < len(encoded) * (i + 1):
                 reply = client.recv(slice_size)
                 echo += reply
-                print(len(echo), len(encoded))
+                print('received0', len(echo), len(encoded))
 
     client.close()
 
@@ -57,3 +56,4 @@ if __name__ == '__main__':
     for line in diff:
         if not line.startswith('  '):  # check if data is correctly echoed
             print(line)
+    print('end')

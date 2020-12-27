@@ -16,6 +16,7 @@ if __name__ == '__main__':
         start = time.perf_counter()
         while True:
             data = conn.recv(2048)
+            print(data)
             if data:
                 conn.send(data)
             else:

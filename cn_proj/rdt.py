@@ -241,7 +241,9 @@ class RDTSocket(UnreliableSocket):
         assert self.target_addr, 'You did not specify where to send.'
 
         if not self.probed:
+            print('server probing')
             self.probe()
+            print('server after probe')
 
         data_length = len(data)
         if data_length <= self.max_segment_size:
