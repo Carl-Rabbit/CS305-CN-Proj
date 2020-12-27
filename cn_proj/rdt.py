@@ -52,12 +52,13 @@ class RDTSocket(UnreliableSocket):
 
         self.sender_work = False
         self.acker_work = False
-
         self.sender = threading.Thread(target=self.send_from_buffer)
-
         self.acker = threading.Thread(target=self.ack)
 
         self.probed = False
+
+        self.closed = False
+        self.target_closed = False
 
     def print_debug(self, msg: str, caller) -> None:
         if self.debug:
@@ -365,6 +366,12 @@ class RDTSocket(UnreliableSocket):
         #############################################################################
         #                             END OF YOUR CODE                              #
         #############################################################################
+
+        while not self.send_buffer.empty() or self.sending_zone:
+            continue
+        self.sender_work = False
+        self.closed = True
+
         # super().close()
 
     def set_send_to(self, send_to):
