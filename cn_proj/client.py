@@ -9,7 +9,7 @@ if __name__ == '__main__':
     client.connect(('127.0.0.1', 9000))
 
     echo = b''
-    count = 1
+    count = 2
     slice_size = 2048
     blocking_send = False
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     print(f'transmitted {len(encoded) * count}bytes in {time.perf_counter() - start}s')
     diff = Differ().compare((data * count).splitlines(keepends=True),
                             echo.decode().splitlines(keepends=True))
-    # client.close()
+    client.close()
 
     '''
     make sure the following is reachable

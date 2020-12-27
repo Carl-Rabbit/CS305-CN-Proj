@@ -44,13 +44,13 @@ class Server(ThreadingUDPServer):
                 time.sleep(len(data) / self.rate)
             self.buffer -= len(data)
 
-            # loss_rate: float = 0.1
-            # corrupt_rate: float = 1E-5
-            # if random.random() < loss_rate:
-            #     return
-            # if random.random() < corrupt_rate:
-            #     i: int = random.randint(0, len(data) - 1)
-            #     data[i] = data[i] ^ random.randbytes(1)
+            loss_rate: float = 0.1
+            corrupt_rate: float = 1E-5
+            if random.random() < loss_rate:
+                return
+            if random.random() < corrupt_rate:
+                i: int = random.randint(0, len(data) - 1)
+                data[i] = data[i] ^ random.randbytes(1)
 
             """
             blockingly process each request
@@ -71,7 +71,7 @@ class Server(ThreadingUDPServer):
         for example:
         time.sleep(random.random())
         """
-        # time.sleep(random.random() * 0.2)
+        time.sleep(random.random() * 0.6)
         to = bytes_to_addr(data[:8])
         print(client_address, to)  # observe tht traffic
         socket.sendto(addr_to_bytes(client_address) + data[8:], to)
@@ -81,5 +81,5 @@ server_address = ('127.0.0.1', 12345)
 
 if __name__ == '__main__':
     print('network.py is running')
-    with Server(server_address, 10240) as server:
+    with Server(server_address, 20480) as server:
         server.serve_forever()
