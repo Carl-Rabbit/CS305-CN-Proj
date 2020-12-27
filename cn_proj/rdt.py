@@ -93,7 +93,7 @@ class RDTSocket(UnreliableSocket):
         self.target_addr = address
         self._recv_from = self.recvfrom
         self.setblocking(True)
-        
+
         self.sender_work = True
         self.acker_work = True
         self.sender.start()
@@ -311,7 +311,6 @@ class RDTSocket(UnreliableSocket):
                     self.probe_rpl()
                     continue
                 elif sfa == utils.PROBE_RPL:
-                    self.probe_rpl()
                     continue
                 elif sfa == utils.DATA:
                     segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
