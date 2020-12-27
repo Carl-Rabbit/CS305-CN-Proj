@@ -176,10 +176,12 @@ class RDTSocket(UnreliableSocket):
         data = b''
         self.buff_size = buff_size
         while True:
-            # if self.recv_buffer.empty():
-            #     continue
+            if self.recv_buffer.empty():
+                continue
+            # print('recv_buffer not empty')
             msg = self.recv_buffer.get()
-            if utils.generate_chksm(msg):
+            # print('get!!!')
+            if not utils.generate_chksm(msg):
                 continue
             segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
             sfa = msg[0:1]
@@ -298,6 +300,7 @@ class RDTSocket(UnreliableSocket):
                     segment, new_seq_num, new_seqack_num, data_length = utils.extract_data_from_msg(msg)
                     print(f'receive {self.seqack_num} len {data_length} at {time.time()}')
                     if new_seq_num == self.seqack_num:
+                        print(f'put {self.seqack_num} len {data_length} at {time.time()}')
                         # receive 0, ack 0, then self.seqack += len(segment)
                         ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
                         self.seqack_num += data_length
@@ -307,6 +310,7 @@ class RDTSocket(UnreliableSocket):
                         self.recv_buffer.put(msg)
                         continue
                     elif new_seq_num < self.seqack_num:
+                        print('smaller')
                         ack_msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
                         self.sender_work = False
                         self.rpl_ack(ack_msg)
