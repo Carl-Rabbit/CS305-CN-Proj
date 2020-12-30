@@ -83,7 +83,7 @@ class RDTSocket(UnreliableSocket):
         self.closed = False
         self.target_closed = False
 
-        # control
+        # FSM var
         self.status = self.S_START
         self.nxt_status = self.S_START
 
@@ -264,6 +264,7 @@ class RDTSocket(UnreliableSocket):
         return
 
     def update_dev_rtt(self):
+        """ compute new dev_rtt """
         sample_rtt = self.recv_time - self.send_time
         self.estimated_rtt = (1 - self.ALPHA) * self.estimated_rtt + self.ALPHA * sample_rtt
         self.dev_rtt = (1 - self.BETA) * self.dev_rtt + self.BETA * abs(sample_rtt - self.estimated_rtt)
