@@ -4,14 +4,14 @@ import time
 from difflib import Differ
 
 if __name__ == '__main__':
-    client = RDTSocket()
+    client = RDTSocket(debug=False)
     # client = socket(AF_INET, SOCK_STREAM)  # check what python socket does
     client.connect(('127.0.0.1', 9000))
 
     echo = b''
     count = 2
     slice_size = 2048
-    blocking_send = True
+    blocking_send = False
 
     with open('data/alice30.txt', 'r') as f:
         data = f.read()
