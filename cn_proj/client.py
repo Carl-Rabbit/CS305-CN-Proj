@@ -11,7 +11,7 @@ if __name__ == '__main__':
     echo = b''
     count = 2
     slice_size = 2048
-    blocking_send = False
+    blocking_send = True
 
     with open('data/alice30.txt', 'r') as f:
         data = f.read()
@@ -44,9 +44,6 @@ if __name__ == '__main__':
                 reply = client.recv(slice_size)
                 echo += reply
                 print(len(echo), len(encoded))
-    print(f'transmitted {len(encoded) * count}bytes in {time.perf_counter() - start}s')
-    diff = Differ().compare((data * count).splitlines(keepends=True),
-                            echo.decode().splitlines(keepends=True))
     client.close()
 
     '''
