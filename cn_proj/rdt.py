@@ -109,7 +109,8 @@ class RDTSocket(UnreliableSocket):
         self.handshake_1(address)
         end: float = time.time_ns()
         self.rtt_unit = (end - start) * 1.2 / 1E9
-        print('estimated rtt unit', self.rtt_unit)
+        if self.debug:
+            print('estimated rtt unit', self.rtt_unit)
 
         data = utils.get_handshake_3_packet()
         while True:
@@ -121,7 +122,8 @@ class RDTSocket(UnreliableSocket):
                 if rpl == utils.get_handshake_2_packet():
                     continue
             except Exception as e:
-                print('it is assumed that connection is established.', e, self.connect)
+                if self.debug:
+                    print('it is assumed that connection is established.', e, self.connect)
                 break
 
         self.target_addr = address
@@ -168,13 +170,15 @@ class RDTSocket(UnreliableSocket):
                     break
             except Exception as e:
                 # timeout
-                print(e, self.accept)
+                if self.debug:
+                    print(e, self.accept)
                 self._send_to(rpl, addr)
                 continue
 
         end: float = time.time_ns()
         self.rtt_unit = (end - start) * 1.2 / 1E9
-        print('estimated rtt', self.rtt_unit * self.rtt_multiplicand)
+        if self.debug:
+            print('estimated rtt', self.rtt_unit * self.rtt_multiplicand)
 
         self.setblocking(True)
         conn._recv_from = self.recvfrom
@@ -203,11 +207,13 @@ class RDTSocket(UnreliableSocket):
             try:
                 rpl, frm = self.recvfrom(self.buff_size)
                 if rpl == utils.get_handshake_2_packet():
-                    print('handshake 2 received')
+                    if self.debug:
+                        print('handshake 2 received')
                     self.setblocking(True)
                     break
             except Exception as e:
-                print(e, self.handshake_1)
+                if self.debug:
+                    print(e, self.handshake_1)
                 continue
 
     def recv(self, buff_size: int):
@@ -220,9 +226,7 @@ class RDTSocket(UnreliableSocket):
         In other words, if someone else sends data to you from another address,
         it MUST NOT affect the data returned by this function.
         """
-        t1 = time.time_ns()
         assert self._recv_from, "Connection not established yet. Use recvfrom instead."
-        data = b''
         self.buff_size = buff_size
         return self.ret_queue.get(block=True)
 
@@ -236,8 +240,6 @@ class RDTSocket(UnreliableSocket):
         assert self._send_to, "Connection not established yet. Use sendto instead."
         assert self.target_addr, 'You did not specify where to send.'
         assert not self.closed, 'The man closed is the man who does not send.'
-        # if not self.probed:
-        #     self.to_probe = True
 
         data_length = len(data)
         if data_length <= self.max_segment_size:
@@ -249,27 +251,17 @@ class RDTSocket(UnreliableSocket):
             index_0 = 0
             index_1 = segment_size
             while index_1 < data_length:
-                print(f'{index_0}, {index_1}, {data_length}')
+                if self.debug:
+                    print(f'{index_0}, {index_1}, {data_length}')
                 segment = data[index_0:index_1]
                 self.data_queue.put(segment)
                 index_0 += segment_size
                 index_1 += segment_size
             if index_0 < data_length:
-                print(f'{index_0}, {data_length}, {data_length}')
+                if self.debug:
+                    print(f'{index_0}, {data_length}, {data_length}')
                 self.data_queue.put(data[index_0:])
         return
-
-    # def probe_rpl(self):
-    #     with self.sender_work:
-    #         self.acker_work = False
-    #
-    #         buff_size: int = self.buff_size
-    #         data_length: int = math.ceil(math.log(buff_size + 1, 256))
-    #         data = utils.int_to_bu_bytes(buff_size, data_length)
-    #         msg = utils.generate_probe_rpl_msg(self.seq_num, self.seqack_num, data)
-    #         self._send_to(msg, self.target_addr)
-    #
-    #         self.acker_work = True
 
     def update_dev_rtt(self):
         sample_rtt = self.recv_time - self.send_time
@@ -279,13 +271,14 @@ class RDTSocket(UnreliableSocket):
     def control_thread(self):
         while self.nxt_status == self.S_START:
             pass
-
-        print('Controller thread start')
+        if self.debug:
+            print('Controller thread start')
 
         while True:
             # update status
             if self.nxt_status != self.status:
-                print('goto status : ', self.nxt_status)
+                if self.debug:
+                    print('goto status : ', self.nxt_status)
             self.status = self.nxt_status
 
             if self.status == self.S_WAIT:
@@ -296,7 +289,8 @@ class RDTSocket(UnreliableSocket):
                         # parse data
                         try:
                             data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
-                            print(f'received {seq_num}')
+                            if self.debug:
+                                print(f'received {seq_num}')
                             if seq_num <= self.seqack_num:
                                 if seq_num == self.seqack_num:
                                     self.ret_queue.put(data)
@@ -310,15 +304,18 @@ class RDTSocket(UnreliableSocket):
                             else:
                                 raise Exception(f'seq_num > : {utils.extract_data_from_msg(msg)}, {self.seqack_num}')
                         except Exception as e:
-                            print(e)
+                            if self.debug:
+                                print(e)
 
                     elif sfa == utils.ACK:
                         # update send info
                         try:
                             data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
-                            print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
+                            if self.debug:
+                                print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
                             if seqack_num == self.seq_num + len(self.cur_msg) - 15:
-                                print('correct condition')
+                                if self.debug:
+                                    print('correct condition')
                                 self.recv_time = time.time_ns()
                                 self.update_dev_rtt()
                                 self.seq_num += len(self.cur_msg) - 15
@@ -333,33 +330,40 @@ class RDTSocket(UnreliableSocket):
                             elif seqack_num < self.seq_num + len(self.cur_msg) - 15:
                                 self.nxt_status = self.S_WAIT
                             else:
-                                print(utils.extract_data_from_msg(msg))
-                                print(utils.extract_data_from_msg(self.cur_msg))
+                                if self.debug:
+                                    print(utils.extract_data_from_msg(msg))
+                                if self.debug:
+                                    print(utils.extract_data_from_msg(self.cur_msg))
                                 raise Exception(f'Seq ack error: seqack_num={seqack_num}, self.seq_num={self.seq_num}')
                         except Exception as e:
-                            print(e)
+                            if self.debug:
+                                print(e)
                     elif sfa == utils.CLOSE_1:
                         try:
                             data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
                             assert data == b''
-                            print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
+                            if self.debug:
+                                print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
                             if seq_num != self.seqack_num:
                                 sys.stderr.write('This is not supposed to happen. ORZ')
                             self.ret_queue.put(data)
                             self.nxt_status = self.S_SD_CLOSE_1_RPL
                         except Exception as e:
-                            print(e)
+                            if self.debug:
+                                print(e)
                     elif sfa == utils.CLOSE_2:
                         try:
                             data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
                             assert data == b''
-                            print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
+                            if self.debug:
+                                print(f'rdt {seqack_num} len {data_length} self:{self.seq_num}')
                             if seq_num != self.seqack_num:
                                 sys.stderr.write('This is not supposed to happen. ORZ')
                             self.ret_queue.put(data)
                             self.nxt_status = self.S_SD_CLOSE_2_RPL
                         except Exception as e:
-                            print(e)
+                            if self.debug:
+                                print(e)
                     elif sfa == utils.CLOSE_1_RPL:
                         self.nxt_status = self.S_WAIT
                     elif sfa == utils.CLOSE_2_RPL:
@@ -384,8 +388,8 @@ class RDTSocket(UnreliableSocket):
 
                     self.send_time = time.time_ns()
                     self.check_time = time.time_ns() + self.dev_rtt
-
-                    print(f'send {self.seq_num} data len {len(self.cur_msg) - 15} at {time.time()}. '
+                    if self.debug:
+                        print(f'send {self.seq_num} data len {len(self.cur_msg) - 15} at {time.time()}. '
                           f'dev_rtt={self.dev_rtt / 10 ** 9}')
 
                     self.nxt_status = self.S_WAIT
@@ -394,8 +398,8 @@ class RDTSocket(UnreliableSocket):
                     self.cur_msg = utils.generate_close_1_msg(self.seq_num, self.seqack_num)
                     self.send_time = time.time_ns()
                     self.check_time = time.time_ns() + self.dev_rtt
-
-                    print(f'send {self.seq_num} close 1 len {len(self.cur_msg) - 15} at {time.time()}. '
+                    if self.debug:
+                        print(f'send {self.seq_num} close 1 len {len(self.cur_msg) - 15} at {time.time()}. '
                           f'dev_rtt={self.dev_rtt / 10 ** 9}')
 
                     self.nxt_status = self.S_WAIT
@@ -404,8 +408,8 @@ class RDTSocket(UnreliableSocket):
                     self.cur_msg = utils.generate_close_2_msg(self.seq_num, self.seqack_num)
                     self.send_time = time.time_ns()
                     self.check_time = time.time_ns() + self.dev_rtt
-
-                    print(f'send {self.seq_num} close 2 len {len(self.cur_msg) - 15} at {time.time()}. '
+                    if self.debug:
+                        print(f'send {self.seq_num} close 2 len {len(self.cur_msg) - 15} at {time.time()}. '
                           f'dev_rtt={self.dev_rtt / 10 ** 9}')
 
                     self.nxt_status = self.S_WAIT
@@ -414,7 +418,8 @@ class RDTSocket(UnreliableSocket):
                 # send ack
                 data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(self.msg_to_ack)
                 assert seq_num <= self.seqack_num, '!<='
-                print(f'send ack, seq_num={seq_num}, data_length={data_length}, self.seqack_num={self.seqack_num}')
+                if self.debug:
+                    print(f'send ack, seq_num={seq_num}, data_length={data_length}, self.seqack_num={self.seqack_num}')
                 # assert seq_num == self.seqack_num
                 # print(utils.extract_data_from_msg(self.msg_to_ack))
                 if seq_num == self.seqack_num:
@@ -422,17 +427,20 @@ class RDTSocket(UnreliableSocket):
                 msg = utils.generate_ack_msg(self.seq_num, self.seqack_num)
                 # print(utils.extract_data_from_msg(msg))
                 self.msg_queue.put(msg)
-                print(f'ack {self.seqack_num} {seq_num} len {data_length}')
+                if self.debug:
+                    print(f'ack {self.seqack_num} {seq_num} len {data_length}')
                 self.nxt_status = self.S_WAIT
 
             elif self.status == self.S_SD_RE:
-                print('Time exceeded')
+                if self.debug:
+                    print('Time exceeded')
                 self.msg_queue.put(self.cur_msg)
                 self.estimated_rtt *= 1.2
                 self.dev_rtt *= 1.2
                 self.check_time = time.time_ns() + self.dev_rtt
 
-                print(f'send {self.seq_num} data len {len(self.cur_msg) - 15} at {time.time()}. '
+                if self.debug:
+                    print(f'send {self.seq_num} data len {len(self.cur_msg) - 15} at {time.time()}. '
                       f'dev_rtt={self.dev_rtt / 10 ** 9}')
 
                 self.nxt_status = self.S_WAIT
@@ -440,11 +448,14 @@ class RDTSocket(UnreliableSocket):
             # elif self.status == self.S_SD_PROBE:
             #     pass
             elif self.status == self.S_SD_CLOSE_1_RPL:
-                print('received not processed', self.recv_queue.qsize())
-                print('yet to send 1', self.msg_queue.qsize())
+                if self.debug:
+                    print('received not processed', self.recv_queue.qsize())
+                if self.debug:
+                    print('yet to send 1', self.msg_queue.qsize())
                 data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(self.msg_to_ack)
                 assert seq_num <= self.seqack_num, '!<='
-                print(
+                if self.debug:
+                    print(
                     f'send ack 1 close, seq_num={seq_num}, data_length={data_length}, self.seqack_num={self.seqack_num}')
                 # assert seq_num == self.seqack_num
                 # print(utils.extract_data_from_msg(self.msg_to_ack))
@@ -454,14 +465,18 @@ class RDTSocket(UnreliableSocket):
                 self.target_closed = True
                 # print(utils.extract_data_from_msg(msg))
                 self.msg_queue.put(msg)
-                print(f'ack close {self.seqack_num} {seq_num} len {data_length}')
+                if self.debug:
+                    print(f'ack close {self.seqack_num} {seq_num} len {data_length}')
                 self.nxt_status = self.S_WAIT
             elif self.status == self.S_SD_CLOSE_2_RPL:
-                print('received not processed', self.recv_queue.qsize())
-                print('yet to send 2', self.msg_queue.qsize())
+                if self.debug:
+                    print('received not processed', self.recv_queue.qsize())
+                if self.debug:
+                    print('yet to send 2', self.msg_queue.qsize())
                 data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(self.msg_to_ack)
                 assert seq_num <= self.seqack_num, '!<='
-                print(
+                if self.debug:
+                    print(
                     f'send ack 2 close, seq_num={seq_num}, data_length={data_length}, self.seqack_num={self.seqack_num}')
                 # assert seq_num == self.seqack_num
                 # print(utils.extract_data_from_msg(self.msg_to_ack))
@@ -471,26 +486,32 @@ class RDTSocket(UnreliableSocket):
                 self.target_closed = True
                 # print(utils.extract_data_from_msg(msg))
                 self.msg_queue.put(msg)
-                print(f'ack close {self.seqack_num} {seq_num} len {data_length}')
+                if self.debug:
+                    print(f'ack close {self.seqack_num} {seq_num} len {data_length}')
                 try:
                     rpl = self.recv_queue.get(timeout=self.dev_rtt / 1E9 * 3)
                     self.nxt_status = self.S_SD_CLOSE_2_RPL
                 except TimeoutError:
-                    print('entering timeout err')
+                    if self.debug:
+                        print('entering timeout err')
                     self.nxt_status = self.S_STOP
                 except Empty:
-                    print('empty exception?')
+                    if self.debug:
+                        print('empty exception?')
                     self.nxt_status = self.S_STOP
                 except Exception as e:
-                    print('some other exception')
-                    print(e)
+                    if self.debug:
+                        print('some other exception')
+                    if self.debug:
+                        print(e)
                     self.nxt_status = self.S_SD_CLOSE_2_RPL
 
             elif self.status == self.S_STOP:
                 self.sender_work = False
                 self.receiver_work = False
                 super().close()
-                print('Stop')
+                if self.debug:
+                    print('Stop')
                 break
 
             else:
@@ -500,8 +521,8 @@ class RDTSocket(UnreliableSocket):
 
         while not self.sender_work:
             pass
-
-        print('send_thread start')
+        if self.debug:
+            print('send_thread start')
 
         while self.sender_work and not self.target_closed:
             # if random.random() < 0.1:
@@ -510,21 +531,23 @@ class RDTSocket(UnreliableSocket):
                 msg = self.msg_queue.get(timeout=0.1)
                 self._send_to(msg, self.target_addr)
             except Exception as e:
-                print(e)
+                if self.debug:
+                    print(e)
                 continue
 
     def receive_thread(self):
         while not self.receiver_work:
             pass
-
-        print('receive_thread start')
+        if self.debug:
+            print('receive_thread start')
 
         try:
             while self.receiver_work:
                 msg, addr = self._recv_from(self.buff_size)
                 self.recv_queue.put(msg)
         except Exception as e:
-            print(e)
+            if self.debug:
+                print(e)
 
     def send_msg(self, msg: bytes) -> None:
         self._send_to(msg, self.target_addr)
@@ -552,52 +575,6 @@ class RDTSocket(UnreliableSocket):
         Finish the connection and release resources. For simplicity, assume that
         after a socket is closed, neither further sends nor receives are allowed.
         """
-        # while not self.data_queue.empty() or self.sending_zone:
-        #     continue
-        #
-        # with self.sender_work:
-        #     self.closed = True
-        #
-        #     self.acker_work = False
-        #     msg = utils.generate_close_msg(self.seq_num, self.seqack_num)
-        #     self.settimeout(1)
-        #     while True:
-        #         self._send_to(msg, self.target_addr)
-        #         try:
-        #             rpl, frm = self._recv_from(self.buff_size)
-        #         except Exception as e:
-        #             print(e, self.close)
-        #             continue
-        #         if not utils.checksum(rpl):
-        #             continue
-        #         sfa = utils.get_sfa_from_msg(rpl)
-        #         try:
-        #             data, seq_num, seqack_num, data_length = utils.extract_data_from_msg(msg)
-        #         except Exception as e:
-        #             print(e, self.close)
-        #             continue
-        #         if sfa != utils.CLOSE_RPL:
-        #             continue
-        #         if seq_num != self.seqack_num:
-        #             print('wrong order in close')
-        #             continue
-        #         break
-        #
-        #     if not self.target_closed:
-        #         self.acker_work = True
-        #         while not self.target_closed:
-        #             continue
-        #         self.acker_work = False
-        #         self.settimeout(2)
-        #         while True:
-        #             try:
-        #                 self._recv_from(self.buff_size)
-        #                 self.close_rpl()
-        #             except Exception as e:
-        #                 print('target is really closed', e)
-        #                 break
-        #
-        # self.acker_work = False
         self.closed = True
         self.data_queue.put(b'')
 

@@ -4,7 +4,7 @@ import time
 from difflib import Differ
 
 if __name__ == '__main__':
-    client = RDTSocket()
+    client = RDTSocket(debug=False)
     # client = socket(AF_INET, SOCK_STREAM)  # check what python socket does
     client.connect(('127.0.0.1', 9000))
 
@@ -44,9 +44,6 @@ if __name__ == '__main__':
                 reply = client.recv(slice_size)
                 echo += reply
                 print(len(echo), len(encoded))
-    print(f'transmitted {len(encoded) * count}bytes in {time.perf_counter() - start}s')
-    diff = Differ().compare((data * count).splitlines(keepends=True),
-                            echo.decode().splitlines(keepends=True))
     client.close()
 
     '''
