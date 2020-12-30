@@ -5,11 +5,17 @@
 HANDSHAKE_1 = (255).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_2 = (254).to_bytes(length=1, byteorder='big', signed=False)
 HANDSHAKE_3 = (253).to_bytes(length=1, byteorder='big', signed=False)
-ACK = (252).to_bytes(length=1, byteorder='big', signed=False)
-INCOMPLETE = (251).to_bytes(length=1, byteorder='big', signed=False)
-CLOSE = (249).to_bytes(length=1, byteorder='big', signed=False)
-PROBE = (248).to_bytes(length=1, byteorder='big', signed=False)
-PROBE_RPL = (247).to_bytes(length=1, byteorder='big', signed=False)
+HANDSHAKE_4 = (252).to_bytes(length=1, byteorder='big', signed=False)
+ACK = (251).to_bytes(length=1, byteorder='big', signed=False)
+PACKET_TOO_LONG = (250).to_bytes(length=1, byteorder='big', signed=False)
+PROBE = (249).to_bytes(length=1, byteorder='big', signed=False)
+PROBE_RPL = (248).to_bytes(length=1, byteorder='big', signed=False)
+
+CLOSE_1 = (247).to_bytes(length=1, byteorder='big', signed=False)
+CLOSE_1_RPL = (247).to_bytes(length=1, byteorder='big', signed=False)
+
+CLOSE_2 = (246).to_bytes(length=1, byteorder='big', signed=False)
+CLOSE_2_RPL = (245).to_bytes(length=1, byteorder='big', signed=False)
 
 DATA = (0).to_bytes(length=1, byteorder='big', signed=False)
 SEGMENT = (1).to_bytes(length=1, byteorder='big', signed=False)
@@ -142,7 +148,7 @@ def extract_data_from_msg(msg: bytes) -> (bytes, int, int, int):
         raise Exception('Wrong chksm')
     data_length = bytes_to_bu_int(msg[9:13])
     if data_length != len(msg) - 15:
-        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}')
+        raise Exception(f'Wrong msg length: {data_length}, {len(msg) - 15}, {msg}')
     data = msg[15:]
     seq_num = bytes_to_bu_int(msg[1:5])
     seqack_num = bytes_to_bu_int(msg[5:9])
@@ -173,32 +179,22 @@ def generate_segment_msg(seq_num: int, seqack_num: int, segment: bytes) -> bytes
 
 def generate_segment_end_msg(seq_num: int, seqack_num: int) -> bytes:
     """
-    Given SEQ, SEQACK, generate a segment end message.
-    :param seq_num: SEQ
-    :param seqack_num: SEQACK
-    :return: The segment end message.
+    Generate segment end msg. This kind msg does not contain data.
+    :param seq_num: The seq.
+    :param seqack_num: The seqack.
+    :return: The segment end msg.
     """
     return generate_msg_with_sfa(SEGMENT_END, seq_num, seqack_num, b'')
 
 
-def generate_close_msg(seq_num: int, seqack_num: int) -> bytes:
-    """
-    Given SEQ, SEQACK, generate a close message.
-    :param seq_num: SEQ
-    :param seqack_num: SEQACK
-    :return: The close message.
-    """
-    return generate_msg_with_sfa(CLOSE, seq_num, seqack_num, b'')
-
-
 def generate_msg_with_sfa(sfa: bytes, seq_num: int, seqack_num: int, data: bytes) -> bytes:
     """
-    Generate a message with a specific sfa.
+    Generate a message with a certain sfa.
     :param sfa: The sfa.
-    :param seq_num: SEQ
-    :param seqack_num: SEQACK
+    :param seq_num: The seq.
+    :param seqack_num: The seqack.
     :param data: The data to send.
-    :return: The message.
+    :return: The message in bytes.
     """
     seq = int_to_bu_bytes(seq_num, 4)
     seqack = int_to_bu_bytes(seqack_num, 4)
@@ -224,10 +220,10 @@ def generate_ack_msg(seq_num: int, seqack_num: int) -> bytes:
 
 def generate_probe_msg(seq_num: int, seqack_num: int) -> bytes:
     """
-    Generate an probe message from seq and seqack of the receiver.
-    :param seq_num: seq of the receiver.
-    :param seqack_num: seqack of the receiver.
-    :return: The probe message the receiver uses.
+    Generate probe msg from seq and seqack.
+    :param seq_num: The seq.
+    :param seqack_num: The seqack.
+    :return: The probe msg.
     """
     sfa: bytes = PROBE
     seq = int_to_bu_bytes(seq_num, 4)
@@ -237,13 +233,80 @@ def generate_probe_msg(seq_num: int, seqack_num: int) -> bytes:
     return sfa + seq + seqack + data_length_bytes + chksm
 
 
-def generate_probe_rpl_msg(seq_num: int, seqack_num: int, data: bytes) -> bytes:
+def generate_probe_rpl_msg(seq_num: int, seqack_num: int, buff_size: bytes) -> bytes:
+    """
+    Generate probe rpl msg from seq and seqack.
+    :param seq_num: The seq.
+    :param seqack_num: The seqack.
+    :param buff_size: The buffer size.
+    :return: The probe rpl msg.
+    """
     sfa: bytes = PROBE_RPL
     seq = int_to_bu_bytes(seq_num, 4)
     seqack = int_to_bu_bytes(seqack_num, 4)
-    data_length_bytes = int_to_bu_bytes(len(data), 4)
-    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes + data)
-    return sfa + seq + seqack + data_length_bytes + chksm + data
+    data_length_bytes = int_to_bu_bytes(len(buff_size), 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes + buff_size)
+    return sfa + seq + seqack + data_length_bytes + chksm + buff_size
+
+
+def generate_close_1_msg(seq_num: int, seqack_num: int) -> bytes:
+    """
+    Generate close msg from seq and seqack.
+    :param seq_num: seq
+    :param seqack_num: seqack
+    :return: The close msg.
+    """
+    sfa: bytes = CLOSE_1
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
+
+
+def generate_close_1_rpl_msg(seq_num: int, seqack_num: int) -> bytes:
+    """
+    Generate close rpl msg from seq and seqack.
+    :param seq_num: seq
+    :param seqack_num: seqack
+    :return: The close rpl msg.
+    """
+    sfa: bytes = CLOSE_1_RPL
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
+
+
+def generate_close_2_msg(seq_num: int, seqack_num: int) -> bytes:
+    """
+    Generate close msg from seq and seqack.
+    :param seq_num: seq
+    :param seqack_num: seqack
+    :return: The close msg.
+    """
+    sfa: bytes = CLOSE_2
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
+
+
+def generate_close_2_rpl_msg(seq_num: int, seqack_num: int) -> bytes:
+    """
+    Generate close rpl msg from seq and seqack.
+    :param seq_num: seq
+    :param seqack_num: seqack
+    :return: The close rpl msg.
+    """
+    sfa: bytes = CLOSE_2_RPL
+    seq = int_to_bu_bytes(seq_num, 4)
+    seqack = int_to_bu_bytes(seqack_num, 4)
+    data_length_bytes = int_to_bu_bytes(0, 4)
+    chksm: bytes = generate_chksm(sfa + seq + seqack + data_length_bytes)
+    return sfa + seq + seqack + data_length_bytes + chksm
 
 
 def get_seq_num(msg: bytes):
@@ -266,8 +329,8 @@ def get_seqack_num(msg: bytes):
 
 def get_sfa_from_msg(msg: bytes) -> bytes:
     """
-    Get the sfa from a message.
-    :param msg: The message.
+    Given the msg, get the sfa.
+    :param msg: The msg.
     :return: The sfa.
     """
     return msg[0:1]
